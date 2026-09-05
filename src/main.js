@@ -517,7 +517,7 @@ ipcMain.handle('adblock-get-stats', (event, host) => {
 });
 
 ipcMain.handle('adblock-record-block', (event, { host, count }) => {
-  const c = count || 1;
+  const c = Math.min(Math.max(count || 1, 1), 3);
   for (let i = 0; i < c; i++) {
     adBlockEngine.recordBlock(host || 'youtube.com');
   }

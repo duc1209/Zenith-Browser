@@ -119,8 +119,7 @@ const YOUTUBE_AD_PATTERNS = [
   '&oad=',
   '&ad_type=',
   '&ctier=',
-  'youtube.com/api/stats/qoe?*adformat',
-  'googlevideo.com/videoplayback?*&adformat='
+  'youtube.com/api/stats/qoe?*adformat'
 ];
 
 // 3. Bộ lọc giao diện mở rộng (Cosmetic Filters - uBlock Origin / EasyList Syntax)
@@ -193,7 +192,7 @@ const COSMETIC_FILTERS = `
   }
 `;
 
-// 4. uBlock Origin Core Scriptlet: json-prune + surrogates + anti-adblock defusers
+// 4. uBlock Origin Core Scriptlet: deep-prune + ytcfg defuser + surrogates + anti-adblock
 const UBLOCK_SCRIPTLET = `
 (function() {
   if (window.__zenith_ublock_scriptlet_injected) return;
@@ -206,7 +205,7 @@ const UBLOCK_SCRIPTLET = `
     window.google_ad_client = "ca-pub-0000000000000000";
     window.adsbygoogle = window.adsbygoogle || [];
     window.adsbygoogle.loaded = true;
-    window.adsbygoogle.push = function(o) { return 1; };
+    window.adsbygoogle.push = function() { return 1; };
 
     // Google Tag / Analytics Surrogate
     window.ga = window.ga || function() {};
@@ -226,63 +225,174 @@ const UBLOCK_SCRIPTLET = `
     window.snackbars = { show: function() {} };
   } catch (e) {}
 
-  // B. uBlock Origin json-prune: Bóc tách loại bỏ sạch adPlacements, adSlots khỏi mọi response JSON của YouTube
-  function pruneAdPayload(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-    if (obj.adPlacements) delete obj.adPlacements;
-    if (obj.adSlots) delete obj.adSlots;
-    if (obj.playerAds) delete obj.playerAds;
-    if (obj.adBreakHeartbeatParams) delete obj.adBreakHeartbeatParams;
+  // B. uBlock Origin deepPruneAds: Bóc tách đệ quy triệt để mọi trường adPlacements, adSlots
+  function deepPruneAds(obj, depth) {
+    if (!obj || typeof obj !== 'object' || (depth || 0) > 8) return obj;
+    const currentDepth = (depth || 0) + 1;
+
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        deepPruneAds(obj[i], currentDepth);
+      }
+      return obj;
+    }
+
+    if ('adPlacements' in obj) delete obj.adPlacements;
+    if ('adSlots' in obj) delete obj.adSlots;
+    if ('playerAds' in obj) delete obj.playerAds;
+    if ('adBreakHeartbeatParams' in obj) delete obj.adBreakHeartbeatParams;
+    if ('adFormat' in obj) delete obj.adFormat;
+    if ('instreamAdPlayerConfig' in obj) delete obj.instreamAdPlayerConfig;
+    if ('ad_break' in obj) delete obj.ad_break;
+
     if (obj.streamingData && obj.streamingData.serverAbrStreamingUrl) {
       delete obj.streamingData.serverAbrStreamingUrl;
     }
-    if (obj.playerResponse) {
-      pruneAdPayload(obj.playerResponse);
+
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (typeof val === 'string') {
+        if ((key === 'playerResponse' || key === 'raw_player_response') && (val.includes('adPlacements') || val.includes('adSlots') || val.includes('playerAds'))) {
+          try {
+            const parsed = JSON.parse(val);
+            deepPruneAds(parsed, currentDepth);
+            obj[key] = JSON.stringify(parsed);
+          } catch (e) {}
+        }
+      } else if (typeof val === 'object' && val !== null) {
+        deepPruneAds(val, currentDepth);
+      }
     }
     return obj;
   }
 
-  // Hook biến toàn cục ytInitialPlayerResponse
+  // C. Tắt toàn bộ máy chủ phát quảng cáo của YouTube thông qua EXPERIMENT_FLAGS
+  function defuseYtcfg(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    const exp = cfg.EXPERIMENT_FLAGS || (cfg.data_ && cfg.data_.EXPERIMENT_FLAGS);
+    if (exp) {
+      exp.web_enable_ab_testing_on_player_ad_events = false;
+      exp.all_web_enable_network_machine = false;
+      exp.web_player_enable_ad_break_free = true;
+      exp.html5_enable_ad_timeout = false;
+      exp.disable_ad_filter = false;
+      exp.web_player_touch_next_to_seek = true;
+    }
+  }
+
   try {
-    let _ytInit = pruneAdPayload(window.ytInitialPlayerResponse);
+    if (window.ytcfg) {
+      if (window.ytcfg.data_) defuseYtcfg(window.ytcfg.data_);
+      if (typeof window.ytcfg.set === 'function') {
+        const origSet = window.ytcfg.set;
+        window.ytcfg.set = function(newCfg, ...args) {
+          defuseYtcfg(newCfg);
+          return origSet.call(this, newCfg, ...args);
+        };
+      }
+    }
+  } catch (e) {}
+
+  // D. Hook biến toàn cục ytInitialPlayerResponse & ytplayer
+  try {
+    let _ytInit = window.ytInitialPlayerResponse ? deepPruneAds(window.ytInitialPlayerResponse) : undefined;
     Object.defineProperty(window, 'ytInitialPlayerResponse', {
       get: () => _ytInit,
-      set: (val) => { _ytInit = pruneAdPayload(val); },
+      set: (val) => { _ytInit = deepPruneAds(val); },
       configurable: true
     });
   } catch (e) {}
 
-  // C. Hook JSON.parse toàn cục
+  try {
+    let _ytplayer = window.ytplayer;
+    if (_ytplayer && _ytplayer.config && _ytplayer.config.args) {
+      deepPruneAds(_ytplayer.config.args);
+    }
+    Object.defineProperty(window, 'ytplayer', {
+      get: () => _ytplayer,
+      set: (val) => {
+        if (val && val.config && val.config.args) {
+          deepPruneAds(val.config.args);
+        }
+        _ytplayer = val;
+      },
+      configurable: true
+    });
+  } catch (e) {}
+
+  // E. Hook Response.prototype.json & Response.prototype.text
+  try {
+    const origRespJson = Response.prototype.json;
+    Response.prototype.json = async function() {
+      const data = await origRespJson.call(this);
+      try {
+        const url = (this.url || '').toLowerCase();
+        if (url.includes('/youtubei/v1/player') || url.includes('/youtubei/v1/next') || 
+            url.includes('/youtubei/v1/browse') || url.includes('/get_video_info')) {
+          deepPruneAds(data);
+        }
+      } catch (e) {}
+      return data;
+    };
+
+    const origRespText = Response.prototype.text;
+    Response.prototype.text = async function() {
+      let text = await origRespText.call(this);
+      try {
+        const url = (this.url || '').toLowerCase();
+        if (url.includes('/youtubei/v1/player') || url.includes('/player?') || url.includes('/get_video_info')) {
+          if (text.includes('adPlacements') || text.includes('adSlots') || text.includes('playerAds')) {
+            try {
+              const data = JSON.parse(text);
+              deepPruneAds(data);
+              text = JSON.stringify(data);
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+      return text;
+    };
+  } catch (e) {}
+
+  // F. Hook JSON.parse toàn cục
   try {
     const origParse = JSON.parse;
     JSON.parse = function(...args) {
       const res = origParse.apply(this, args);
       if (res && typeof res === 'object') {
-        if (res.adPlacements || res.adSlots || res.playerAds || res.playerResponse) {
-          pruneAdPayload(res);
+        if ('adPlacements' in res || 'adSlots' in res || 'playerAds' in res || 'playerResponse' in res || 'raw_player_response' in res) {
+          deepPruneAds(res);
         }
       }
       return res;
     };
   } catch (e) {}
 
-  // D. Hook window.fetch (json-prune-fetch-response uBlock scriptlet)
+  // G. Hook window.fetch (trả về 200 OK rỗng cho tracker telemetry & lọc dữ liệu player)
   try {
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
-      const url = args[0] ? (typeof args[0] === 'string' ? args[0] : (args[0].url || '')) : '';
-      if (url.includes('/api/stats/ads') || url.includes('/pagead/') || url.includes('ptracking') || 
-          url.includes('doubleclick.net') || url.includes('/player/ad_break')) {
+      let url = '';
+      if (args[0]) {
+        if (typeof args[0] === 'string') url = args[0];
+        else if (args[0].url) url = args[0].url;
+        else if (args[0].href) url = args[0].href;
+      }
+      const lower = url.toLowerCase();
+
+      if (lower.includes('/api/stats/ads') || lower.includes('/pagead/') || 
+          lower.includes('ptracking') || lower.includes('doubleclick.net') || 
+          lower.includes('/youtubei/v1/player/ad_break')) {
         return new Response('{}', { status: 200, statusText: 'OK', headers: { 'Content-Type': 'application/json' } });
       }
 
       const resp = await origFetch.apply(this, args);
-      if (url.includes('/youtubei/v1/player') || url.includes('/player?') || url.includes('/get_watch?')) {
+      if (lower.includes('/youtubei/v1/player') || lower.includes('/player?') || lower.includes('/get_video_info')) {
         try {
           const clone = resp.clone();
           const json = await clone.json();
           if (json && typeof json === 'object') {
-            pruneAdPayload(json);
+            deepPruneAds(json);
             return new Response(JSON.stringify(json), {
               status: resp.status,
               statusText: resp.statusText,
@@ -295,13 +405,15 @@ const UBLOCK_SCRIPTLET = `
     };
   } catch (e) {}
 
-  // E. Hook XMLHttpRequest (json-prune-xhr-response uBlock scriptlet)
+  // H. Hook XMLHttpRequest
   try {
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
       if (typeof url === 'string') {
-        if (url.includes('/api/stats/ads') || url.includes('/pagead/') || url.includes('ptracking') || 
-            url.includes('doubleclick.net') || url.includes('/player/ad_break')) {
+        const lower = url.toLowerCase();
+        if (lower.includes('/api/stats/ads') || lower.includes('/pagead/') || 
+            lower.includes('ptracking') || lower.includes('doubleclick.net') || 
+            lower.includes('/youtubei/v1/player/ad_break')) {
           return origOpen.call(this, method, 'data:application/json,{}', ...rest);
         }
       }
@@ -309,19 +421,32 @@ const UBLOCK_SCRIPTLET = `
     };
   } catch (e) {}
 
-  // F. Fast-forwarder & Anti-Adblock modal auto-remover
+  // I. Trình dập tắt quảng cáo tức thì & skip native qua movie_player
   function neutraliseAds() {
-    // 1. Tự động đóng popup cảnh báo anti-adblock của YouTube
+    // 1. Tự động đóng popup cảnh báo anti-adblock
     const warnings = document.querySelectorAll('ytd-enforcement-message-view-model, tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)');
-    warnings.forEach(el => {
-      el.remove();
+    if (warnings.length > 0) {
+      warnings.forEach(el => el.remove());
       const backdrop = document.querySelector('tp-yt-iron-overlay-backdrop');
       if (backdrop) backdrop.remove();
       const video = document.querySelector('video');
       if (video && video.paused) video.play().catch(() => {});
-    });
+    }
 
-    // 2. Tự động click các nút Bỏ qua quảng cáo (Skip Ad)
+    const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+    const isAdShowing = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-player-overlay-layout');
+
+    // 2. Sử dụng native API skipAd của chính YouTube player
+    if (moviePlayer && typeof moviePlayer.skipAd === 'function') {
+      try {
+        const adState = typeof moviePlayer.getAdState === 'function' ? moviePlayer.getAdState() : (isAdShowing ? 1 : 0);
+        if (adState > 0 || isAdShowing) {
+          moviePlayer.skipAd();
+        }
+      } catch (e) {}
+    }
+
+    // 3. Tự động bấm các nút Bỏ qua quảng cáo (chỉ khi nút hiển thị thật sự)
     const skipSelectors = [
       '.ytp-ad-skip-button',
       '.ytp-ad-skip-button-modern',
@@ -332,13 +457,14 @@ const UBLOCK_SCRIPTLET = `
     ];
     for (const sel of skipSelectors) {
       const btn = document.querySelector(sel);
-      if (btn) btn.click();
+      if (btn && btn.offsetParent !== null) {
+        btn.click();
+      }
     }
 
-    // 3. Nếu video quảng cáo đang phát -> Tua ngay đến hết
+    // 4. Nếu video quảng cáo phát sinh ngoài dự kiến -> Tua ngay đến hết
     const video = document.querySelector('video');
-    const adPlayer = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-player-overlay-layout');
-    if (video && adPlayer) {
+    if (video && isAdShowing) {
       video.muted = true;
       video.playbackRate = 16.0;
       if (isFinite(video.duration) && video.duration > 0) {
@@ -346,8 +472,6 @@ const UBLOCK_SCRIPTLET = `
       }
       video.dispatchEvent(new Event('timeupdate'));
       video.dispatchEvent(new Event('ended'));
-      const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
-      if (skipBtn) skipBtn.click();
     }
   }
 

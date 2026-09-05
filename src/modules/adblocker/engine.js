@@ -14,6 +14,7 @@ class AdBlockEngine {
       totalBlocked: 0,
       perHost: {} // { 'example.com': 12 }
     };
+    this.recentBlocks = new Map(); // Chống spam tăng đếm khi YouTube/mạng retry
   }
 
   // Bật / Tắt chặn quảng cáo toàn cục
@@ -57,7 +58,7 @@ class AdBlockEngine {
       for (let i = 0; i < hostParts.length - 1; i++) {
         const sub = hostParts.slice(i).join('.');
         if (this.adDomainsSet.has(sub)) {
-          this.recordBlock(mainHost || urlHost);
+          this.recordBlock(mainHost || urlHost, url);
           return true;
         }
       }
@@ -65,7 +66,7 @@ class AdBlockEngine {
       // 2. Kiểm tra mẫu quảng cáo video YouTube & ad endpoints
       for (const pattern of YOUTUBE_AD_PATTERNS) {
         if (fullUrl.includes(pattern)) {
-          this.recordBlock(mainHost || 'youtube.com');
+          this.recordBlock(mainHost || 'youtube.com', url);
           return true;
         }
       }
@@ -76,8 +77,22 @@ class AdBlockEngine {
     }
   }
 
-  // Ghi nhận số lượng quảng cáo đã chặn
-  recordBlock(host) {
+  // Ghi nhận số lượng quảng cáo đã chặn với cơ chế chống lặp retry
+  recordBlock(host, url = '') {
+    if (url) {
+      const now = Date.now();
+      const last = this.recentBlocks.get(url);
+      if (last && (now - last < 3000)) {
+        return; // Đã ghi nhận URL này trong vòng 3 giây qua, bỏ qua retry
+      }
+      this.recentBlocks.set(url, now);
+      if (this.recentBlocks.size > 500) {
+        const cutoff = now - 5000;
+        for (const [k, v] of this.recentBlocks.entries()) {
+          if (v < cutoff) this.recentBlocks.delete(k);
+        }
+      }
+    }
     this.stats.totalBlocked++;
     if (host) {
       const cleanHost = host.replace(/^www\./, '');
