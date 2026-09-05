@@ -1,13 +1,14 @@
 /**
- * Cốc Cốc AdBlock Engine - Bộ xử lý chặn quảng cáo
- * Điều phối chặn request mạng, chèn CSS ẩn quảng cáo và script YouTube
+ * Zenith Browser - uBlock Origin Core Engine
+ * Điều phối chặn request mạng, chèn CSS ẩn quảng cáo và scriptlet uBlock Origin
  */
 
-const { AD_DOMAINS, YOUTUBE_AD_PATTERNS, COSMETIC_FILTERS, YOUTUBE_ADBLOCK_SCRIPT } = require('./rules');
+const { AD_DOMAINS, YOUTUBE_AD_PATTERNS, COSMETIC_FILTERS, UBLOCK_SCRIPTLET } = require('./rules');
 
 class AdBlockEngine {
   constructor() {
     this.enabled = true;
+    this.adDomainsSet = new Set(AD_DOMAINS.map(d => d.toLowerCase()));
     this.whitelist = new Set(); // Danh sách domain người dùng cho phép quảng cáo
     this.stats = {
       totalBlocked: 0,
@@ -41,7 +42,7 @@ class AdBlockEngine {
     }
   }
 
-  // Kiểm tra xem URL có bị chặn không
+  // Kiểm tra xem URL có bị chặn không theo chuẩn uBlock Origin
   shouldBlock(url, mainHost = '') {
     if (!this.enabled) return false;
     if (mainHost && !this.isEnabledForHost(mainHost)) return false;
@@ -51,21 +52,21 @@ class AdBlockEngine {
       const urlHost = parsedUrl.hostname.toLowerCase();
       const fullUrl = url.toLowerCase();
 
-      // 1. Kiểm tra domain quảng cáo
-      for (const domain of AD_DOMAINS) {
-        if (urlHost === domain || urlHost.endsWith('.' + domain) || fullUrl.includes(domain)) {
+      // 1. Kiểm tra domain & subdomain quảng cáo (O(1) Set Lookup)
+      const hostParts = urlHost.split('.');
+      for (let i = 0; i < hostParts.length - 1; i++) {
+        const sub = hostParts.slice(i).join('.');
+        if (this.adDomainsSet.has(sub)) {
           this.recordBlock(mainHost || urlHost);
           return true;
         }
       }
 
-      // 2. Kiểm tra quảng cáo video YouTube
-      if (mainHost.includes('youtube.com') || urlHost.includes('youtube.com') || urlHost.includes('googlevideo.com')) {
-        for (const pattern of YOUTUBE_AD_PATTERNS) {
-          if (fullUrl.includes(pattern)) {
-            this.recordBlock('youtube.com');
-            return true;
-          }
+      // 2. Kiểm tra mẫu quảng cáo video YouTube & ad endpoints
+      for (const pattern of YOUTUBE_AD_PATTERNS) {
+        if (fullUrl.includes(pattern)) {
+          this.recordBlock(mainHost || 'youtube.com');
+          return true;
         }
       }
 
@@ -95,12 +96,12 @@ class AdBlockEngine {
   attachToSession(electronSession) {
     const filter = { urls: ['*://*/*'] };
 
-    // 1. Gỡ bỏ Content-Security-Policy & Trusted Types để cho phép scriptlet chặn quảng cáo hoạt động 100%
+    // 1. Gỡ bỏ Content-Security-Policy để cho phép uBlock scriptlets & cosmetic filters hoạt động 100%
     electronSession.webRequest.onHeadersReceived(filter, (details, callback) => {
       const responseHeaders = { ...details.responseHeaders };
       for (const key of Object.keys(responseHeaders)) {
         const lower = key.toLowerCase();
-        if (lower.startsWith('content-security-policy')) {
+        if (lower.startsWith('content-security-policy') || lower === 'report-to' || lower === 'reporting-endpoints') {
           delete responseHeaders[key];
         }
       }
@@ -130,7 +131,7 @@ class AdBlockEngine {
       }
     });
 
-    // 3. Chèn script và CSS chặn quảng cáo vào webContents
+    // 3. Chèn uBlock Scriptlet và CSS Cosmetic Filter vào webContents
     electronSession.on('web-contents-created', (event, contents) => {
       const applyFilters = async () => {
         try {
@@ -141,21 +142,19 @@ class AdBlockEngine {
           const host = new URL(pageUrl).hostname;
           if (!this.isEnabledForHost(host)) return;
 
-          // Chèn CSS ẩn banner quảng cáo & Shopee/Sponsored
+          // Chèn CSS ẩn banner quảng cáo
           await contents.insertCSS(COSMETIC_FILTERS);
 
-          // Nếu là YouTube, chèn script tự động tua và diệt quảng cáo video
-          if (host.includes('youtube.com')) {
-            await contents.executeJavaScript(YOUTUBE_ADBLOCK_SCRIPT, true);
-          }
+          // Chèn uBlock Scriptlet (json-prune, surrogates, anti-adblock defusers)
+          await contents.executeJavaScript(UBLOCK_SCRIPTLET, true);
         } catch (e) {
           // Bỏ qua nếu trang đã đóng hoặc webContents bị hủy
         }
       };
 
       contents.on('did-start-navigation', (e, url) => {
-        if (url && url.includes('youtube.com')) {
-          contents.executeJavaScript(YOUTUBE_ADBLOCK_SCRIPT, true).catch(() => {});
+        if (url && !url.startsWith('chrome') && !url.startsWith('file')) {
+          contents.executeJavaScript(UBLOCK_SCRIPTLET, true).catch(() => {});
         }
       });
       contents.on('dom-ready', applyFilters);
@@ -166,3 +165,4 @@ class AdBlockEngine {
 }
 
 module.exports = AdBlockEngine;
+

@@ -102,7 +102,31 @@
     }
   } catch (e) {}
 
-  // 3. BỘ TRÍCH XUẤT VÀ XÓA BỎ QUẢNG CÁO YOUTUBE THEO CHUẨN CỐC CỐC ADGUARD SCRIPTLET
+  // 2.5 uBlock Origin Surrogates (Giả lập vô hại các tracker & Anti-Adblock Defusers)
+  try {
+    window.canRunAds = true;
+    window.isAdBlockActive = false;
+    window.google_ad_client = "ca-pub-0000000000000000";
+    window.adsbygoogle = window.adsbygoogle || [];
+    window.adsbygoogle.loaded = true;
+    window.adsbygoogle.push = function() { return 1; };
+
+    window.ga = window.ga || function() {};
+    window.gtag = window.gtag || function() {};
+    window.dataLayer = window.dataLayer || [];
+
+    const noopDefuser = function() {
+      this.check = function() {};
+      this.clearEvent = function() {};
+      this.on = function(a, b) { if (!a) setTimeout(b, 1); return this; };
+      this.onDetected = function() { return this; };
+      this.onNotDetected = function(fn) { if (typeof fn === 'function') setTimeout(fn, 1); return this; };
+    };
+    window.FuckAdBlock = noopDefuser;
+    window.BlockAdBlock = noopDefuser;
+  } catch (e) {}
+
+  // 3. BỘ TRÍCH XUẤT VÀ XÓA BỎ QUẢNG CÁO YOUTUBE THEO CHUẨN UBLOCK ORIGIN SCRIPTLET
   function pruneAds(obj) {
     if (!obj || typeof obj !== 'object') return obj;
     let blocked = 0;
