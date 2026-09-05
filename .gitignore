@@ -23,3 +23,8 @@ npm-debug.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Android Project (keep local for testing, do not push to GitHub yet)
+android/
+*.apk
+*.aab
