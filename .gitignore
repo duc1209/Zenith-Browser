@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Production builds & installers (use GitHub Releases for large .exe files)
+release/
+dist/
+build/
+*.rar
+*.zip
+*.7z
+
+# Temporary build & backup folders
+_src_clean_backup/
+.icon-ico/
+*.blockmap
+builder-debug.yml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db

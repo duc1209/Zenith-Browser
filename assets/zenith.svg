@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="zenith_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <filter id="zenith_glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  <!-- Background rounded hexagon or dark sphere -->
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="#0f172a" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+  <!-- Stylized Zenith 'Z' Lightning Emblem -->
+  <path d="M 68 84 L 188 84 L 108 152 L 188 152 L 188 174 L 68 174 L 148 106 L 68 106 Z" 
+        fill="url(#zenith_grad)" filter="url(#zenith_glow)" />
+  <circle cx="188" cy="84" r="8" fill="#34d399"/>
+  <circle cx="68" cy="174" r="8" fill="#38bdf8"/>
+</svg>

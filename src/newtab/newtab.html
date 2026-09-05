@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab mới - Zenith</title>
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <div class="newtab-wrapper">
+    <!-- Header: Dynamic Greeting & Weather/Time -->
+    <header class="top-bar">
+      <div class="greeting-box">
+        <span class="greeting-text" id="greetingText">Chào buổi sáng</span>
+      </div>
+      <div class="datetime-pill">
+        <span class="time-text" id="currentTime">12:00</span>
+        <span class="date-text" id="currentDate">Thứ Bảy, 05/09/2026</span>
+      </div>
+    </header>
+
+    <!-- Zenith Brand & Search -->
+    <section class="hero-section">
+      <div class="zenith-brand">
+        <svg viewBox="0 0 256 256" width="68" height="68" class="hero-logo-svg">
+          <defs>
+            <linearGradient id="hero_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#10b981"/>
+              <stop offset="50%" stop-color="#06b6d4"/>
+              <stop offset="100%" stop-color="#3b82f6"/>
+            </linearGradient>
+            <filter id="hero_glow">
+              <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <path d="M 68 84 L 188 84 L 108 152 L 188 152 L 188 174 L 68 174 L 148 106 L 68 106 Z" 
+                fill="url(#hero_grad)" filter="url(#hero_glow)"/>
+        </svg>
+        <h1 class="hero-title">ZENITH</h1>
+      </div>
+
+      <!-- Modern Glass Search Box -->
+      <div class="glass-search-box">
+        <div class="engine-dropdown">
+          <select id="searchEngineSelect" title="Chọn công cụ tìm kiếm">
+            <option value="google">Google</option>
+            <option value="coccoc">Cốc Cốc</option>
+            <option value="bing">Bing</option>
+            <option value="duckduckgo">DuckDuckGo</option>
+          </select>
+        </div>
+        <input type="text" id="newtabSearchInput" placeholder="Tìm kiếm hoặc nhập URL..." autofocus>
+        <button id="newtabSearchBtn" class="glass-search-btn" title="Tìm kiếm">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Shortcuts Grid (Người dùng tự thêm và ghim) -->
+    <section class="shortcuts-container">
+      <div class="shortcuts-grid" id="shortcutsGrid">
+        <button class="glass-tile add-tile" id="addShortcutBtn" title="Ghim lối tắt trang web">
+          <div class="tile-icon">➕</div>
+          <span class="tile-title">Thêm lối tắt</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script src="newtab.js"></script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+{
+  "name": "zenith-browser",
+  "version": "1.0.0",
+  "description": "Zenith Browser - Trình duyệt Desktop siêu nhẹ, tối ưu RAM, tích hợp Chặn quảng cáo, Bắt link tải video và Chế độ ban đêm",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "node scripts/build-obfuscate.js",
+    "dist:fast": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.zenith.browser",
+    "productName": "Zenith Browser",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/zenith.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Zenith Browser",
+      "artifactName": "Zenith-Browser-Setup.exe",
+      "differentialPackage": false
+    }
+  },
+  "keywords": [
+    "zenith",
+    "browser",
+    "lightweight",
+    "adblocker",
+    "video-downloader",
+    "electron"
+  ],
+  "author": "DUC",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^34.5.8",
+    "electron-builder": "^26.15.3",
+    "javascript-obfuscator": "^5.6.0"
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "ffmpeg-static": "^5.3.0"
+  }
+}

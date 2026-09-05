@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zenith Browser</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="zenith-window">
+    <!-- 1. Thanh tiêu đề tích hợp dải Tab hiện đại (Header & Floating Tabs) -->
+    <header class="zenith-titlebar">
+      <!-- Zenith Brand Emblem -->
+      <div class="brand-container" title="Zenith Browser">
+        <svg viewBox="0 0 256 256" width="20" height="20" class="brand-logo-svg">
+          <defs>
+            <linearGradient id="zenith_head_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#10b981"/>
+              <stop offset="50%" stop-color="#06b6d4"/>
+              <stop offset="100%" stop-color="#3b82f6"/>
+            </linearGradient>
+          </defs>
+          <path d="M 68 84 L 188 84 L 108 152 L 188 152 L 188 174 L 68 174 L 148 106 L 68 106 Z" fill="url(#zenith_head_grad)"/>
+        </svg>
+        <span class="brand-text">ZENITH</span>
+      </div>
+
+      <!-- Dải các thẻ Tabs dạng nổi (Floating Pill Tabs) -->
+      <div class="tab-strip" id="tabStrip">
+        <!-- Các tab sẽ tự sinh bằng JS -->
+      </div>
+
+      <!-- Nút mở Tab mới (+) -->
+      <button class="icon-btn new-tab-btn" id="newTabBtn" title="Thẻ mới (Ctrl+T)">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+
+      <!-- Nút điều khiển cửa sổ Windows -->
+      <div class="window-controls">
+        <button class="win-btn win-min" id="winMinimize" title="Thu nhỏ">─</button>
+        <button class="win-btn win-max" id="winMaximize" title="Phóng to">◻</button>
+        <button class="win-btn win-close" id="winClose" title="Đóng">✕</button>
+      </div>
+    </header>
+
+    <!-- 2. Thanh điều hướng siêu gọn (Minimalist Omnibox Toolbar) -->
+    <nav class="zenith-toolbar">
+      <!-- Cụm điều hướng trang: Back, Forward, Reload, Home -->
+      <div class="nav-cluster">
+        <button class="tool-btn" id="btnBack" title="Quay lại (Alt+Left)" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <button class="tool-btn" id="btnForward" title="Tiến lên (Alt+Right)" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+        <button class="tool-btn" id="btnReload" title="Tải lại trang (Ctrl+R)">
+          <svg id="iconReload" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M23 4v6h-6"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+        <button class="tool-btn" id="btnHome" title="Trang chủ Zenith">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Thanh địa chỉ Kính Mờ (Glass Omnibox) -->
+      <div class="omnibox-wrapper">
+        <span class="security-badge" id="securityIcon" title="Kết nối bảo mật">🔒</span>
+        <input type="text" id="omniboxInput" placeholder="Tìm kiếm trên web hoặc nhập địa chỉ URL..." autocomplete="off" spellcheck="false">
+        <button class="clear-input-btn" id="clearUrlBtn" style="display: none;">✕</button>
+      </div>
+
+      <!-- Cụm tính năng cao cấp bên phải (Shield, Downloader, PiP, Dark Mode, Menu) -->
+      <div class="features-cluster">
+        <!-- 1. Khiên Chặn Quảng Cáo (Zenith Shield) -->
+        <div class="feature-item">
+          <button class="feature-btn shield-btn" id="adblockShieldBtn" title="Zenith Shield - Chặn quảng cáo">
+            <span class="btn-icon">🛡️</span>
+            <span class="badge shield-badge" id="adblockBadge">0</span>
+          </button>
+          <!-- Popup thống kê chặn quảng cáo -->
+          <div class="floating-popup adblock-card" id="adblockPopup">
+            <div class="popup-title-bar">
+              <div class="popup-brand">
+                <span class="shield-dot"></span>
+                <strong>Zenith Shield</strong>
+              </div>
+              <span class="status-pill" id="adblockStatusText">Đang bảo vệ</span>
+            </div>
+            <div class="toggle-row">
+              <span>Chặn quảng cáo trang này</span>
+              <label class="modern-switch">
+                <input type="checkbox" id="adblockToggleCheckbox" checked>
+                <span class="modern-slider"></span>
+              </label>
+            </div>
+            <div class="glow-stat-card">
+              <div class="glow-number" id="popupBlockedCount">0</div>
+              <div class="glow-label">Quảng cáo & Theo dõi đã chặn</div>
+            </div>
+            <div class="total-row">
+              <span>Tổng số đã chặn:</span>
+              <strong id="popupTotalBlocked">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Nút Tải Video Riêng Biệt (CHỈ HIỆN KHI PHÁT HIỆN VIDEO TRÊN TRANG) -->
+        <div class="feature-item">
+          <button class="feature-btn video-dl-btn" id="btnVideoDownload" title="Tải video đang phát" style="display: none;">
+            <span class="btn-icon">🎬</span>
+            <span class="badge video-badge" id="videoBadge">0</span>
+          </button>
+          <!-- Popup danh sách video bắt được -->
+          <div class="floating-popup media-card" id="videoPopup">
+            <div class="popup-title-bar">
+              <div class="popup-brand">
+                <span style="font-size: 16px;">🎬</span>
+                <strong>Tải Video</strong>
+              </div>
+            </div>
+            <div class="media-stream-list" id="videoListContainer">
+              <div class="empty-stream-msg">
+                Chưa phát hiện video nào trên trang này.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Nút Quản Lý Tải File (CHỈ HIỆN KHI CÓ FILE ĐANG TẢI HOẶC VỪA TẢI XONG) -->
+        <div class="feature-item">
+          <button class="feature-btn file-dl-btn" id="btnFileDownloads" title="Tệp đang tải xuống" style="display: none;">
+            <span class="btn-icon">⬇️</span>
+            <span class="badge dl-progress-badge" id="fileDlBadge" style="display: none;">0%</span>
+          </button>
+          <!-- Popup tiến trình và danh sách file đã tải -->
+          <div class="floating-popup file-dl-card" id="fileDlPopup">
+            <div class="popup-title-bar">
+              <div class="popup-brand">
+                <span style="font-size: 16px;">⬇️</span>
+                <strong>Tệp tải xuống</strong>
+              </div>
+              <button class="glass-action-btn" id="openDownloadsFolderBtn" title="Mở thư mục Downloads">📁 Thư mục</button>
+            </div>
+            <div class="file-download-list" id="fileDownloadList">
+              <div class="empty-stream-msg">Chưa có tệp nào được tải xuống.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Trình Điều Khiển Đa Phương Tiện & Ghim Video (Global Media Controls) -->
+        <div class="feature-item">
+          <button class="feature-btn media-hub-btn" id="btnMediaHub" title="Điều khiển phương tiện (Phát / Ghim video)" style="display: none;">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zM3 3h5v2H3V3zm0 4h5v2H3V7zm0 4h3v2H3v-2z"/>
+              </svg>
+            </span>
+          </button>
+          <!-- Card điều khiển đa phương tiện chuẩn Cốc Cốc / Chrome -->
+          <div class="floating-popup media-hub-card" id="mediaHubPopup">
+            <div class="media-hub-empty" id="mediaHubEmpty" style="display: none;">
+              <span>Không có phương tiện nào đang phát.</span>
+            </div>
+            <div class="media-hub-content" id="mediaHubContent">
+              <div class="media-hub-card-header">
+                <span class="media-hub-label">Điều khiển phương tiện</span>
+                <button class="media-hub-close-card-btn" id="mediaHubCloseCardBtn" title="Đóng bảng điều khiển">✕</button>
+              </div>
+              <div class="media-hub-top">
+                <img class="media-hub-thumb" id="mediaHubThumb" src="../assets/zenith.png" alt="Thumbnail">
+                <div class="media-hub-info">
+                  <div class="media-hub-domain" id="mediaHubDomain">
+                    <span class="media-hub-domain-icon">▶</span>
+                    <span id="mediaHubDomainText">youtube.com</span>
+                  </div>
+                  <div class="media-hub-title" id="mediaHubTitle">Chưa có video đang phát</div>
+                  <div class="media-hub-artist" id="mediaHubArtist">Trình phát đa phương tiện</div>
+                </div>
+                <button class="media-hub-pip-btn" id="mediaHubPipBtn" title="Ghim ra màn hình nhỏ (Picture-in-Picture)">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Controls: ↺10, Play/Pause, ↻10 -->
+              <div class="media-hub-controls">
+                <button class="media-hub-ctrl-btn" id="mediaHubSeekBackBtn" title="Tua lại 10 giây">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                  </svg>
+                  <span class="ctrl-subtext">10</span>
+                </button>
+                <button class="media-hub-play-btn" id="mediaHubPlayBtn" title="Phát / Tạm dừng">
+                  <span id="mediaHubPlayIcon">⏸</span>
+                </button>
+                <button class="media-hub-ctrl-btn" id="mediaHubSeekFwdBtn" title="Tua tới 10 giây">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
+                  </svg>
+                  <span class="ctrl-subtext">10</span>
+                </button>
+              </div>
+
+              <!-- Progress bar & Time -->
+              <div class="media-hub-progress-row">
+                <span class="media-hub-time" id="mediaHubCurrentTime">0:00</span>
+                <div class="media-hub-progress-track" id="mediaHubProgressTrack">
+                  <div class="media-hub-progress-fill" id="mediaHubProgressFill" style="width: 0%;"></div>
+                </div>
+                <span class="media-hub-time" id="mediaHubDuration">0:00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Chế Độ Ban Đêm (Smart Dark Mode) -->
+        <button class="feature-btn" id="btnDarkMode" title="Chế độ ban đêm (Bảo vệ mắt)">
+          <span class="btn-icon" id="darkModeIcon">🌙</span>
+        </button>
+
+        <!-- 5. Ghim Dấu Trang (Bookmark this page) -->
+        <button class="feature-btn bookmark-btn" id="btnBookmark" title="Ghim trang này vào thanh Dấu trang">
+          <span class="btn-icon" id="bookmarkIcon">⭐</span>
+        </button>
+
+        <!-- 6. Tối Ưu RAM / Bộ Nhớ (Memory Saver) -->
+        <button class="feature-btn memory-btn" id="btnMemorySaver" title="Tối ưu RAM (Dọn dẹp bộ nhớ)">
+          <span class="btn-icon">⚡</span>
+        </button>
+
+        <!-- 7. Menu Tiện Ích Đa Năng -->
+        <div class="feature-item">
+          <button class="feature-btn menu-btn" id="btnBrowserMenu" title="Menu tùy chỉnh">
+            <span class="btn-icon">⋮</span>
+          </button>
+          <div class="floating-popup menu-dropdown" id="mainMenuPopup">
+            <div class="menu-action" id="menuItemNewTab">
+              <span>➕ Thẻ mới</span>
+              <small>Ctrl+T</small>
+            </div>
+            <div class="menu-action" id="menuItemDownloads">
+              <span>⬇️ Quản lý Tải xuống</span>
+              <small>Ctrl+J</small>
+            </div>
+            <div class="menu-action" id="menuItemHistory">
+              <span>🕒 Lịch sử duyệt web</span>
+              <small>Ctrl+H</small>
+            </div>
+            <div class="menu-action" id="menuItemBookmarks">
+              <span>⭐ Ẩn/Hiện Thanh Dấu trang</span>
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-action" id="menuItemCleanRam">
+              <span>⚡ Giải phóng RAM & Bộ nhớ đệm</span>
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-action" id="menuItemSettings">
+              <span>⚙️ Cài đặt</span>
+              <small>Ctrl+,</small>
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-action" id="menuItemAbout">
+              <span>ℹ️ Giới thiệu Zenith Browser</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 3. Thanh dấu trang ghim (Bookmarks Bar - Tự động hiện khi người dùng ghim trang) -->
+    <div class="bookmarks-strip" id="bookmarksBar" style="display: none;">
+      <!-- Danh sách trang do người dùng tự ghim sẽ hiển thị tại đây -->
+    </div>
+
+    <!-- Thanh tiến trình tải trang Cyan/Emerald Gradient -->
+    <div class="zenith-progress-bar" id="pageProgressBar"></div>
+
+    <!-- 4. Không gian duyệt web tràn viền 100% (Full Viewport) -->
+    <main class="zenith-viewport" id="webviewContainer">
+      <!-- Toàn bộ các webview hiển thị full màn hình tại đây, KHÔNG BỊ THANH BÊN CHE -->
+    </main>
+
+    <!-- Modal Lịch sử & Tải xuống thanh thoát dạng trượt -->
+    <div class="zenith-modal-overlay" id="zenithModalOverlay" style="display: none;">
+      <div class="zenith-modal" id="zenithModal">
+        <div class="modal-head">
+          <h3 id="modalTitle">Tiện ích</h3>
+          <button class="modal-close-btn" id="modalCloseBtn">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+      </div>
+    </div>
+
+    <!-- Modal Cài Đặt Chuẩn Cốc Cốc / Chrome Siêu Nhẹ (Settings Modal) -->
+    <div class="zenith-modal-overlay" id="settingsModalOverlay" style="display: none;">
+      <div class="settings-modal" id="settingsModal">
+        <!-- Header -->
+        <div class="settings-modal-header">
+          <div class="settings-brand-title">
+            <span class="settings-icon">⚙️</span>
+            <strong>Cài đặt Zenith</strong>
+          </div>
+          <button class="modal-close-btn" id="settingsModalCloseBtn" title="Đóng cài đặt (Esc)">✕</button>
+        </div>
+
+        <!-- Body: Sidebar + Content -->
+        <div class="settings-modal-body">
+          <!-- Sidebar -->
+          <div class="settings-sidebar">
+            <button class="settings-nav-item active" data-target="panelSearch">
+              <span class="nav-icon">🔍</span> Công cụ tìm kiếm
+            </button>
+            <button class="settings-nav-item" data-target="panelPrivacy">
+              <span class="nav-icon">🛡️</span> Quyền riêng tư & Khiên
+            </button>
+            <button class="settings-nav-item" data-target="panelDownloads">
+              <span class="nav-icon">⬇️</span> Tệp tải xuống
+            </button>
+            <button class="settings-nav-item" data-target="panelPerformance">
+              <span class="nav-icon">⚡</span> Hiệu năng & RAM
+            </button>
+            <button class="settings-nav-item" data-target="panelAppearance">
+              <span class="nav-icon">🎨</span> Giao diện & Thẻ
+            </button>
+            <button class="settings-nav-item" data-target="panelAbout">
+              <span class="nav-icon">ℹ️</span> Giới thiệu
+            </button>
+          </div>
+
+          <!-- Content Area -->
+          <div class="settings-content-area">
+            <!-- 1. Công cụ tìm kiếm -->
+            <div class="settings-panel active" id="panelSearch">
+              <h4 class="panel-heading">Công cụ tìm kiếm</h4>
+              <p class="panel-desc">Chọn công cụ tìm kiếm mặc định khi gõ từ khóa trên thanh địa chỉ Omnibox.</p>
+
+              <div class="setting-card">
+                <div class="setting-row">
+                  <div>
+                    <strong>Công cụ tìm kiếm mặc định</strong>
+                    <div class="setting-subtext">Được dùng khi gõ tìm kiếm từ thanh địa chỉ và trang thẻ mới</div>
+                  </div>
+                  <select class="settings-select" id="settingSearchEngine">
+                    <option value="google">Google (Mặc định)</option>
+                    <option value="coccoc">Cốc Cốc</option>
+                    <option value="bing">Bing (Microsoft)</option>
+                    <option value="duckduckgo">DuckDuckGo (Bảo mật cao)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Quyền riêng tư & Khiên -->
+            <div class="settings-panel" id="panelPrivacy">
+              <h4 class="panel-heading">Quyền riêng tư & Bảo mật</h4>
+              <p class="panel-desc">Bảo vệ bạn khỏi quảng cáo phiền toái, mã theo dõi và quản lý dữ liệu cá nhân.</p>
+
+              <div class="setting-card">
+                <div class="setting-row">
+                  <div>
+                    <strong>Zenith Shield - Chặn quảng cáo video & banner</strong>
+                    <div class="setting-subtext">Tự động triệt tiêu quảng cáo video YouTube và banner tài trợ</div>
+                  </div>
+                  <label class="modern-switch">
+                    <input type="checkbox" id="settingShieldToggle" checked>
+                    <span class="modern-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Chặn mã theo dõi & Cookies độc hại</strong>
+                    <div class="setting-subtext">Ngăn các nhà quảng cáo thu thập hành vi duyệt web của bạn</div>
+                  </div>
+                  <label class="modern-switch">
+                    <input type="checkbox" id="settingTrackerToggle" checked>
+                    <span class="modern-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Xóa dữ liệu duyệt web</strong>
+                    <div class="setting-subtext">Xóa lịch sử, cookie và bộ nhớ đệm cache để giải phóng dung lượng</div>
+                  </div>
+                  <button class="settings-action-btn danger" id="btnSettingClearBrowsingData">🗑️ Xóa dữ liệu ngay</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Tải xuống -->
+            <div class="settings-panel" id="panelDownloads">
+              <h4 class="panel-heading">Tệp tải xuống (Savior)</h4>
+              <p class="panel-desc">Quản lý nơi lưu trữ và cách xử lý video, âm thanh và tệp tải về.</p>
+
+              <div class="setting-card">
+                <div class="setting-row">
+                  <div style="flex: 1; min-width: 0; margin-right: 16px;">
+                    <strong>Vị trí tải xuống</strong>
+                    <div class="setting-subtext folder-path-text" id="settingDownloadFolderPath">Đang tải...</div>
+                  </div>
+                  <div style="display: flex; gap: 8px;">
+                    <button class="settings-action-btn" id="btnSettingChangeFolder">Thay đổi...</button>
+                    <button class="settings-action-btn" id="btnSettingOpenFolder">Mở thư mục</button>
+                  </div>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Tự động phát hiện video & âm thanh chất lượng cao</strong>
+                    <div class="setting-subtext">Hiện nút tải video khi phát hiện phim, clip ca nhạc trên trang</div>
+                  </div>
+                  <label class="modern-switch">
+                    <input type="checkbox" id="settingAutoDetectMedia" checked>
+                    <span class="modern-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Hiệu năng & RAM -->
+            <div class="settings-panel" id="panelPerformance">
+              <h4 class="panel-heading">Hiệu năng & Tiết kiệm RAM</h4>
+              <p class="panel-desc">Tối ưu hóa tài nguyên phần cứng để máy tính luôn mượt mà.</p>
+
+              <div class="setting-card">
+                <div class="setting-row">
+                  <div>
+                    <strong>Chế độ Tiết kiệm bộ nhớ (Memory Saver)</strong>
+                    <div class="setting-subtext">Tự động giải phóng tài nguyên của các thẻ chạy ngầm</div>
+                  </div>
+                  <label class="modern-switch">
+                    <input type="checkbox" id="settingMemorySaverToggle" checked>
+                    <span class="modern-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Giới hạn RAM tối đa mỗi tab (512MB)</strong>
+                    <div class="setting-subtext">Ngăn chặn tình trạng tràn RAM do các trang web nặng</div>
+                  </div>
+                  <span class="status-pill" style="color:#10b981; border-color:#10b981;">Đang kích hoạt</span>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Thu hồi RAM ngay lập tức</strong>
+                    <div class="setting-subtext">Xóa sạch rác bộ nhớ của V8 và giải phóng RAM cho Windows</div>
+                  </div>
+                  <button class="settings-action-btn" id="btnSettingCleanRamNow">⚡ Giải phóng RAM</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. Giao diện & Thẻ -->
+            <div class="settings-panel" id="panelAppearance">
+              <h4 class="panel-heading">Giao diện & Thẻ</h4>
+              <p class="panel-desc">Tùy biến hiển thị thanh dấu trang và chế độ ban đêm.</p>
+
+              <div class="setting-card">
+                <div class="setting-row">
+                  <div>
+                    <strong>Hiển thị thanh Dấu trang ghim</strong>
+                    <div class="setting-subtext">Luôn hiển thị thanh bookmark dưới thanh địa chỉ</div>
+                  </div>
+                  <label class="modern-switch">
+                    <input type="checkbox" id="settingShowBookmarksBar">
+                    <span class="modern-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Chế độ Ban đêm (Smart Dark Mode)</strong>
+                    <div class="setting-subtext">Tự động chuyển đổi nền tối bảo vệ mắt cho mọi trang web</div>
+                  </div>
+                  <label class="modern-switch">
+                    <input type="checkbox" id="settingDarkModeToggle">
+                    <span class="modern-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 6. Giới thiệu -->
+            <div class="settings-panel" id="panelAbout">
+              <h4 class="panel-heading">Giới thiệu Zenith Browser</h4>
+              <div class="setting-card" style="text-align: center; padding: 24px;">
+                <div style="font-size: 36px; margin-bottom: 8px;">🚀</div>
+                <h3 style="color:#ffffff; margin-bottom: 4px;">Zenith Browser</h3>
+                <p style="color:#94a3b8; font-size: 12px; margin-bottom: 16px;">Phiên bản 1.2.0 (Siêu nhẹ - 64-bit)</p>
+                <p style="color:#64748b; font-size: 13px; max-width: 460px; margin: 0 auto; line-height: 1.6;">
+                  Trình duyệt Desktop thế hệ mới được tinh giản triệt để: Loại bỏ toàn bộ tiến trình theo dõi, dịch vụ quảng cáo ngầm và bloatware của Chromium/Cốc Cốc để mang lại tốc độ duyệt web mượt mà, ăn ít RAM nhất.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thông báo nổi Toast Notification -->
+    <div class="zenith-toast" id="toastNotification">
+      <span class="toast-indicator"></span>
+      <span class="toast-text" id="toastMessage">Thông báo</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
