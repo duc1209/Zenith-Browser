@@ -297,22 +297,14 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
                             ZenithWebView.currentMediaTitle = title
                             ZenithWebView.currentActiveTitle = title
                         }
-                        val mainAct = context as? MainActivity
-                        if (mainAct != null && mainAct.isAppInBackground) {
-                            ZenithMediaService.startOrUpdate(
-                                context,
-                                title = ZenithWebView.currentMediaTitle,
-                                artist = ZenithWebView.currentMediaArtist,
-                                artworkUrl = ZenithWebView.currentArtworkUrl,
-                                positionMs = ZenithWebView.currentPositionMs,
-                                durationMs = ZenithWebView.currentDurationMs,
-                                isPlaying = isPlaying
-                            )
-                        }
                     }
                 },
                 onPlaybackDetails = { isPlaying, title, artist, artworkUrl, positionMs, durationMs ->
                     (context as? Activity)?.runOnUiThread {
+                        val stateChanged = ZenithWebView.isAnyMediaPlaying != isPlaying ||
+                                (title.isNotBlank() && ZenithWebView.currentMediaTitle != title) ||
+                                (artworkUrl.isNotBlank() && ZenithWebView.currentArtworkUrl != artworkUrl)
+
                         ZenithWebView.isAnyMediaPlaying = isPlaying
                         if (title.isNotBlank()) {
                             ZenithWebView.currentMediaTitle = title
@@ -328,7 +320,7 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
                         ZenithWebView.currentDurationMs = durationMs.toLong()
 
                         val mainAct = context as? MainActivity
-                        if (mainAct != null && mainAct.isAppInBackground) {
+                        if (mainAct != null && mainAct.isAppInBackground && stateChanged) {
                             ZenithMediaService.startOrUpdate(
                                 context,
                                 title = ZenithWebView.currentMediaTitle,

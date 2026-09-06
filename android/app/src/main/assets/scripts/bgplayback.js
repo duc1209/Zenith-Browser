@@ -158,30 +158,22 @@
     return false;
   }
 
-  let lastReportedState = { isPlaying: null, title: '', artworkUrl: '', positionMs: 0, durationMs: 0 };
-  let lastReportTime = 0;
+  let lastReportedState = { isPlaying: null, title: '', artworkUrl: '' };
 
   function reportPlaybackState(force) {
     const isPlaying = checkIsAnyMediaPlaying();
     isMediaCurrentlyPlaying = isPlaying;
     const details = getMediaDetails();
-    const now = Date.now();
 
     const titleChanged = details.title !== lastReportedState.title;
     const playingChanged = isPlaying !== lastReportedState.isPlaying;
     const artworkChanged = details.artworkUrl !== lastReportedState.artworkUrl;
-    const durationChanged = Math.abs(details.durationMs - lastReportedState.durationMs) > 1000;
-    const positionJumped = Math.abs(details.positionMs - lastReportedState.positionMs) > 4000;
-    const timeElapsed = (now - lastReportTime) > 4000;
 
-    if (force || titleChanged || playingChanged || artworkChanged || durationChanged || positionJumped || timeElapsed) {
-      lastReportTime = now;
+    if (force || titleChanged || playingChanged || artworkChanged) {
       lastReportedState = {
         isPlaying: isPlaying,
         title: details.title,
-        artworkUrl: details.artworkUrl,
-        positionMs: details.positionMs,
-        durationMs: details.durationMs
+        artworkUrl: details.artworkUrl
       };
 
       if (window.ZenithMobile) {
@@ -201,7 +193,7 @@
     }
   }
 
-  // Lắng nghe sự kiện play/playing/seeked/timeupdate/pause/ended của media
+  // Lắng nghe sự kiện play/playing/seeked/pause/ended của media
   document.addEventListener('play', function() {
     reportPlaybackState(true);
   }, true);
@@ -214,8 +206,15 @@
     reportPlaybackState(true);
   }, true);
 
+  // timeupdate: CHỈ kiểm tra khi bài hát đổi sang bài mới (YouTube SPA navigation)
+  // Tuyệt đối KHÔNG gửi cập nhật liên tục để tránh spam dịch vụ Android làm rung/kêu chuông!
+  let lastCheckedTitle = '';
   document.addEventListener('timeupdate', function() {
-    reportPlaybackState(false);
+    const currentTitle = getMediaDetails().title;
+    if (currentTitle && currentTitle !== lastCheckedTitle) {
+      lastCheckedTitle = currentTitle;
+      reportPlaybackState(true);
+    }
   }, true);
 
   document.addEventListener('pause', function(e) {

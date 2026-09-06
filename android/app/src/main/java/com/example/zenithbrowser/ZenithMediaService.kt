@@ -38,9 +38,10 @@ class ZenithMediaService : Service {
     private var isPlaying: Boolean = true
     private var downloadArtworkThread: Thread? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var isForegroundActive: Boolean = false
 
     companion object {
-        const val CHANNEL_ID = "zenith_media_playback_channel_v2"
+        const val CHANNEL_ID = "zenith_media_playback_channel_v3"
         const val NOTIFICATION_ID = 1001
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
@@ -294,14 +295,20 @@ class ZenithMediaService : Service {
 
         val notification = buildNotification()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
+        if (!isForegroundActive) {
+            isForegroundActive = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
         } else {
-            startForeground(NOTIFICATION_ID, notification)
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(NOTIFICATION_ID, notification)
         }
 
         return START_STICKY
@@ -397,6 +404,7 @@ class ZenithMediaService : Service {
             .addAction(nextAction)       // index 2
             .addAction(stopAction)       // index 3
             .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
             .setOngoing(isPlaying)
 
         val largeIcon = currentArtworkBitmap ?: try {
@@ -414,6 +422,7 @@ class ZenithMediaService : Service {
 
     override fun onDestroy() {
         super.onDestroy()
+        isForegroundActive = false
         downloadArtworkThread?.interrupt()
         try {
             if (wakeLock?.isHeld == true) {
@@ -440,10 +449,12 @@ class ZenithMediaService : Service {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Trình Phát Nhạc & Video",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Điều khiển âm thanh và video khi chạy ngầm hoặc tắt màn hình"
-                setShowBadge(true)
+                setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val manager = getSystemService(NotificationManager::class.java)
