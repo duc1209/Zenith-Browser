@@ -53,6 +53,11 @@ class AdBlockEngine {
       const urlHost = parsedUrl.hostname.toLowerCase();
       const fullUrl = url.toLowerCase();
 
+      // TUYỆT ĐỐI KHÔNG BAO GIỜ CHẶN LUỒNG MEDIA CHÍNH
+      if (fullUrl.includes('googlevideo.com') || fullUrl.includes('videoplayback')) {
+        return false;
+      }
+
       // 1. Kiểm tra domain & subdomain quảng cáo (O(1) Set Lookup)
       const hostParts = urlHost.split('.');
       for (let i = 0; i < hostParts.length - 1; i++) {

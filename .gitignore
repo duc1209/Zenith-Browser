@@ -24,7 +24,12 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Android Project (keep local for testing, do not push to GitHub yet)
-android/
+# Android build artifacts & caches
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+android/*.apk
 *.apk
 *.aab

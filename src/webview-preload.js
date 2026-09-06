@@ -160,13 +160,8 @@
     }
     if ('playerAds' in obj) { prunedCount += 1; delete obj.playerAds; }
     if ('adBreakHeartbeatParams' in obj) delete obj.adBreakHeartbeatParams;
-    if ('adFormat' in obj) delete obj.adFormat;
     if ('instreamAdPlayerConfig' in obj) delete obj.instreamAdPlayerConfig;
     if ('ad_break' in obj) delete obj.ad_break;
-
-    if (obj.streamingData && obj.streamingData.serverAbrStreamingUrl) {
-      delete obj.streamingData.serverAbrStreamingUrl;
-    }
 
     for (const key of Object.keys(obj)) {
       const val = obj[key];
@@ -196,11 +191,8 @@
     const exp = cfg.EXPERIMENT_FLAGS || (cfg.data_ && cfg.data_.EXPERIMENT_FLAGS);
     if (exp) {
       exp.web_enable_ab_testing_on_player_ad_events = false;
-      exp.all_web_enable_network_machine = false;
-      exp.web_player_enable_ad_break_free = true;
       exp.html5_enable_ad_timeout = false;
       exp.disable_ad_filter = false;
-      exp.web_player_touch_next_to_seek = true;
     }
   }
 
@@ -319,25 +311,7 @@
         return new Response('{}', { status: 200, statusText: 'OK', headers: { 'Content-Type': 'application/json' } });
       }
 
-      const response = await origFetch.apply(this, args);
-
-      // Lọc dữ liệu player
-      if (lower.includes('/youtubei/v1/player') || lower.includes('/player?') || lower.includes('/get_video_info')) {
-        try {
-          const clone = response.clone();
-          const json = await clone.json();
-          if (json && typeof json === 'object') {
-            deepPruneAds(json);
-            return new Response(JSON.stringify(json), {
-              status: response.status,
-              statusText: response.statusText,
-              headers: response.headers
-            });
-          }
-        } catch (e) {}
-      }
-
-      return response;
+      return await origFetch.apply(this, args);
     };
   } catch (e) {}
 
@@ -357,7 +331,14 @@
   } catch (e) {}
 
   // F. Bộ máy dập tắt video ads & Anti-Adblock (Tự động kích hoạt native skipAd)
+  let lastAdReportTime = 0;
   function destroyVideoAds() {
+    // Không can thiệp nếu người dùng đang gõ phím / tìm kiếm
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || 
+        document.activeElement.tagName === 'TEXTAREA' || document.activeElement.isContentEditable)) {
+      return;
+    }
+
     // 1. Tự động đóng popup cảnh báo chặn quảng cáo của YouTube
     const warnings = document.querySelectorAll('ytd-enforcement-message-view-model, tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)');
     if (warnings.length > 0) {
@@ -370,11 +351,15 @@
           video.play().catch(() => {});
         }
       });
-      reportBlockedAds(1);
+      const now = Date.now();
+      if (now - lastAdReportTime > 1000) {
+        lastAdReportTime = now;
+        reportBlockedAds(1);
+      }
     }
 
     const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
-    const adElement = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-player-overlay-layout');
+    const adElement = document.querySelector('.ad-showing, .ad-interrupting');
 
     // 2. Kích hoạt native skipAd() của YouTube player ngay lập tức
     if (moviePlayer && typeof moviePlayer.skipAd === 'function') {
@@ -382,7 +367,11 @@
         const adState = typeof moviePlayer.getAdState === 'function' ? moviePlayer.getAdState() : (adElement ? 1 : 0);
         if (adState > 0 || adElement) {
           moviePlayer.skipAd();
-          reportBlockedAds(1);
+          const now = Date.now();
+          if (now - lastAdReportTime > 1000) {
+            lastAdReportTime = now;
+            reportBlockedAds(1);
+          }
         }
       } catch (e) {}
     }
@@ -400,7 +389,11 @@
       const btn = document.querySelector(sel);
       if (btn && btn.offsetParent !== null) {
         btn.click();
-        reportBlockedAds(1);
+        const now = Date.now();
+        if (now - lastAdReportTime > 1000) {
+          lastAdReportTime = now;
+          reportBlockedAds(1);
+        }
       }
     }
 
@@ -414,11 +407,15 @@
       }
       video.dispatchEvent(new Event('timeupdate'));
       video.dispatchEvent(new Event('ended'));
-      reportBlockedAds(1);
+      const now = Date.now();
+      if (now - lastAdReportTime > 1000) {
+        lastAdReportTime = now;
+        reportBlockedAds(1);
+      }
     }
   }
 
-  setInterval(destroyVideoAds, 35);
+  setInterval(destroyVideoAds, 60);
   const observer = new MutationObserver(destroyVideoAds);
   if (document.documentElement) {
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });

@@ -1,0 +1,358 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: #080c14;
+  color: #f8fafc;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 16px;
+  position: relative;
+}
+
+/* Ambient glow orbs */
+.glow-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.15;
+}
+
+.orb-1 {
+  width: 320px;
+  height: 320px;
+  background: #10b981;
+  top: -80px;
+  left: 10%;
+}
+
+.orb-2 {
+  width: 320px;
+  height: 320px;
+  background: #06b6d4;
+  bottom: -100px;
+  right: 10%;
+}
+
+.newtab-wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+
+/* Header */
+.top-bar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.greeting-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.3px;
+}
+
+.datetime-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.time-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.date-text {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Hero Section */
+.hero-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.zenith-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-logo-svg {
+  filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.45));
+  width: 52px;
+  height: 52px;
+}
+
+.hero-title {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, #10b981 0%, #06b6d4 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Glass Search Box */
+.glass-search-box {
+  width: 100%;
+  max-width: 580px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  border-radius: 24px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-search-box:focus-within {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+}
+
+.engine-dropdown {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 4px 8px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.engine-dropdown select {
+  border: none;
+  background: transparent;
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.engine-dropdown select option {
+  background: #111827;
+  color: #ffffff;
+}
+
+#newtabSearchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: #ffffff;
+  padding: 8px 4px;
+}
+
+#newtabSearchInput::placeholder {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.glass-search-btn {
+  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  color: #090d16;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Shortcuts Grid */
+.shortcuts-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 580px;
+}
+
+.glass-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  text-decoration: none;
+  color: #f1f5f9;
+  cursor: pointer;
+}
+
+.del-shortcut-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.8);
+  border: none;
+  color: #ffffff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.tile-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.tile-icon img {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.tile-title {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  color: #cbd5e1;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile Screens Adjustments */
+@media (max-width: 480px) {
+  body {
+    padding: 18px 12px;
+    align-items: flex-start;
+  }
+
+  .newtab-wrapper {
+    margin-top: 10px;
+    gap: 20px;
+  }
+
+  .top-bar {
+    padding: 0;
+  }
+
+  .greeting-text {
+    font-size: 13px;
+  }
+
+  .datetime-pill {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .time-text {
+    font-size: 12px;
+  }
+
+  .date-text {
+    font-size: 10px;
+  }
+
+  .hero-title {
+    font-size: 28px;
+  }
+
+  .hero-logo-svg {
+    width: 44px;
+    height: 44px;
+  }
+
+  .glass-search-box {
+    padding: 4px 8px;
+  }
+
+  .engine-dropdown {
+    padding: 3px 6px;
+    margin-right: 4px;
+  }
+
+  .engine-dropdown select {
+    font-size: 11px;
+  }
+
+  #newtabSearchInput {
+    font-size: 13px;
+  }
+
+  .shortcuts-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .tile-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+
+  .tile-title {
+    font-size: 11px;
+    max-width: 60px;
+  }
+}
