@@ -7,7 +7,11 @@ import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -226,6 +230,10 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
     var loadingProgress by remember { mutableStateOf(0) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+
+    // Fullscreen Video State
+    var customFullscreenView by remember { mutableStateOf<View?>(null) }
+    var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
 
     // Khởi tạo tab đầu tiên
     LaunchedEffect(Unit) {
@@ -446,6 +454,42 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
                         ZenithWebView.currentActiveTitle = it
                     }
                 }
+
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    if (view == null) return
+                    if (customFullscreenView != null) {
+                        callback?.onCustomViewHidden()
+                        return
+                    }
+                    customFullscreenView = view
+                    customViewCallback = callback
+
+                    (context as? Activity)?.let { act ->
+                        val isShorts = currentUrl.contains("/shorts/")
+                        act.requestedOrientation = if (isShorts) {
+                            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                        } else {
+                            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        }
+                        WindowCompat.setDecorFitsSystemWindows(act.window, false)
+                        val controller = WindowCompat.getInsetsController(act.window, act.window.decorView)
+                        controller.hide(WindowInsetsCompat.Type.systemBars())
+                        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    }
+                }
+
+                override fun onHideCustomView() {
+                    (context as? Activity)?.let { act ->
+                        act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        WindowCompat.setDecorFitsSystemWindows(act.window, true)
+                        val controller = WindowCompat.getInsetsController(act.window, act.window.decorView)
+                        controller.show(WindowInsetsCompat.Type.systemBars())
+                    }
+                    customViewCallback?.onCustomViewHidden()
+                    (customFullscreenView?.parent as? ViewGroup)?.removeView(customFullscreenView)
+                    customFullscreenView = null
+                    customViewCallback = null
+                }
             }
 
             loadUrl(tab.url)
@@ -453,8 +497,20 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
     }
 
     // Xử lý nút Back của Android
-    BackHandler(enabled = canGoBack || tabs.size > 1 || !currentUrl.contains("newtab.html")) {
+    BackHandler(enabled = customFullscreenView != null || canGoBack || tabs.size > 1 || !currentUrl.contains("newtab.html")) {
         when {
+            customFullscreenView != null -> {
+                (context as? Activity)?.let { act ->
+                    act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    WindowCompat.setDecorFitsSystemWindows(act.window, true)
+                    val controller = WindowCompat.getInsetsController(act.window, act.window.decorView)
+                    controller.show(WindowInsetsCompat.Type.systemBars())
+                }
+                customViewCallback?.onCustomViewHidden()
+                (customFullscreenView?.parent as? ViewGroup)?.removeView(customFullscreenView)
+                customFullscreenView = null
+                customViewCallback = null
+            }
             showSearchDialog -> showSearchDialog = false
             showTabsDialog -> showTabsDialog = false
             showSettingsDialog -> showSettingsDialog = false
@@ -468,14 +524,15 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
         }
     }
 
-    // Bố cục giao diện chính (An toàn không bị lẹm tai thỏ/camera với statusBarsPadding)
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF080C14))
-            .statusBarsPadding()
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Bố cục giao diện chính (An toàn không bị lẹm tai thỏ/camera với statusBarsPadding)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF080C14))
+                .then(if (customFullscreenView == null) Modifier.statusBarsPadding() else Modifier)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
 
             // 1. Thanh tiến trình tải trang (Loading Bar)
             if (loadingProgress in 1..99) {
@@ -934,6 +991,38 @@ fun ZenithBrowserApp(isPiP: Boolean, onEnterPiP: () -> Unit) {
             )
         }
     }
+
+    // Lớp phủ Video Toàn Màn Hình (Fullscreen Overlay)
+    if (customFullscreenView != null) {
+        AndroidView(
+            factory = { ctx ->
+                FrameLayout(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                }
+            },
+            update = { container ->
+                container.removeAllViews()
+                customFullscreenView?.let { cv ->
+                    (cv.parent as? ViewGroup)?.removeView(cv)
+                    container.addView(
+                        cv,
+                        ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        )
+    }
+}
 }
 
 @Composable
