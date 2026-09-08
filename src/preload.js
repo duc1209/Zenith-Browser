@@ -10,7 +10,7 @@ try {
   webviewPreloadUrl = ipcRenderer.sendSync('get-webview-preload');
 } catch (e) {}
 
-contextBridge.exposeInMainWorld('zenithAPI', {
+const zenithAPI = {
   // Đường dẫn nạp preload vào thẻ webview
   webviewPreloadPath: webviewPreloadUrl,
 
@@ -19,19 +19,18 @@ contextBridge.exposeInMainWorld('zenithAPI', {
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
 
-  // Quản lý chặn quảng cáo (Zenith Shield)
-  getAdblockStats: (host) => ipcRenderer.invoke('adblock-get-stats', host),
-  toggleAdblock: (host) => ipcRenderer.invoke('adblock-toggle', host),
-  recordAdBlock: (host, count) => ipcRenderer.invoke('adblock-record-block', { host, count }),
+  // Quản lý Tiện ích mở rộng (Chrome Extensions)
+  getAllExtensions: () => ipcRenderer.invoke('extension-get-all'),
+  openExtensionsFolder: () => ipcRenderer.send('extension-open-folder'),
+  pickAndInstallExtension: () => ipcRenderer.invoke('extension-pick-and-install'),
+  installExtensionFromPath: (sourcePath) => ipcRenderer.invoke('extension-install-path', sourcePath),
+  toggleExtension: (id, enabled) => ipcRenderer.invoke('extension-toggle', { id, enabled }),
+  removeExtension: (id) => ipcRenderer.invoke('extension-remove', id),
+  reloadExtensions: () => ipcRenderer.invoke('extension-reload-all'),
 
-  // Quản lý Bắt link & Tải Video
-  getMediaList: (tabId) => ipcRenderer.invoke('media-get-list', tabId),
-  clearMediaList: (tabId) => ipcRenderer.invoke('media-clear-list', tabId),
-  downloadUrl: (url, filename, type) => ipcRenderer.send('download-media', { url, filename, type }),
+  // Tải file thông thường
+  downloadUrl: (url, filename) => ipcRenderer.send('download-media', { url, filename }),
   cancelDownload: (downloadId) => ipcRenderer.send('cancel-download', downloadId),
-  onMediaDetected: (callback) => {
-    ipcRenderer.on('media-detected', (event, data) => callback(data));
-  },
   onDownloadProgress: (callback) => {
     ipcRenderer.on('download-progress', (event, data) => callback(data));
   },
@@ -53,31 +52,7 @@ contextBridge.exposeInMainWorld('zenithAPI', {
   getDownloadFolder: () => ipcRenderer.invoke('get-download-folder'),
   selectDownloadFolder: () => ipcRenderer.invoke('select-download-folder'),
   clearBrowsingData: () => ipcRenderer.invoke('clear-browsing-data')
-});
+};
 
-// Giữ lại alias coccocAPI để tương thích ngược nếu cần
-contextBridge.exposeInMainWorld('coccocAPI', {
-  webviewPreloadPath: webviewPreloadUrl,
-  minimize: () => ipcRenderer.send('window-minimize'),
-  maximize: () => ipcRenderer.send('window-maximize'),
-  close: () => ipcRenderer.send('window-close'),
-  getAdblockStats: (host) => ipcRenderer.invoke('adblock-get-stats', host),
-  toggleAdblock: (host) => ipcRenderer.invoke('adblock-toggle', host),
-  recordAdBlock: (host, count) => ipcRenderer.invoke('adblock-record-block', { host, count }),
-  getMediaList: (tabId) => ipcRenderer.invoke('media-get-list', tabId),
-  clearMediaList: (tabId) => ipcRenderer.invoke('media-clear-list', tabId),
-  downloadUrl: (url, filename, type) => ipcRenderer.send('download-media', { url, filename, type }),
-  cancelDownload: (downloadId) => ipcRenderer.send('cancel-download', downloadId),
-  onMediaDetected: (callback) => {
-    ipcRenderer.on('media-detected', (event, data) => callback(data));
-  },
-  onDownloadProgress: (callback) => {
-    ipcRenderer.on('download-progress', (event, data) => callback(data));
-  },
-  onDownloadComplete: (callback) => {
-    ipcRenderer.on('download-complete', (event, data) => callback(data));
-  },
-  openDownloadFolder: () => ipcRenderer.send('open-download-folder'),
-  showItemInFolder: (filePath) => ipcRenderer.send('show-item-in-folder', filePath),
-  toggleDarkMode: () => ipcRenderer.invoke('toggle-dark-mode')
-});
+contextBridge.exposeInMainWorld('zenithAPI', zenithAPI);
+contextBridge.exposeInMainWorld('coccocAPI', zenithAPI);

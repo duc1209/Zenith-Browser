@@ -31,19 +31,22 @@ const winMinimize = document.getElementById('winMinimize');
 const winMaximize = document.getElementById('winMaximize');
 const winClose = document.getElementById('winClose');
 
-// Zenith Features
-const adblockShieldBtn = document.getElementById('adblockShieldBtn');
-const adblockBadge = document.getElementById('adblockBadge');
-const adblockPopup = document.getElementById('adblockPopup');
-const adblockToggleCheckbox = document.getElementById('adblockToggleCheckbox');
-const popupBlockedCount = document.getElementById('popupBlockedCount');
-const popupTotalBlocked = document.getElementById('popupTotalBlocked');
+// Extension Elements
+const btnExtensions = document.getElementById('btnExtensions');
+const extensionsBadge = document.getElementById('extensionsBadge');
+const extensionsPopup = document.getElementById('extensionsPopup');
+const btnOpenExtensionsFolder = document.getElementById('btnOpenExtensionsFolder');
+const btnReloadExtensions = document.getElementById('btnReloadExtensions');
+const btnPickExtension = document.getElementById('btnPickExtension');
+const extDropzone = document.getElementById('extDropzone');
+const extensionsList = document.getElementById('extensionsList');
+const menuItemExtensions = document.getElementById('menuItemExtensions');
 
-// Video Download Elements (Chỉ hiện khi có video)
-const btnVideoDownload = document.getElementById('btnVideoDownload');
-const videoBadge = document.getElementById('videoBadge');
-const videoPopup = document.getElementById('videoPopup');
-const videoListContainer = document.getElementById('videoListContainer');
+// Settings extension elements
+const btnSettingOpenExtFolder = document.getElementById('btnSettingOpenExtFolder');
+const btnSettingPickExt = document.getElementById('btnSettingPickExt');
+const btnSettingReloadExt = document.getElementById('btnSettingReloadExt');
+const settingsExtensionsList = document.getElementById('settingsExtensionsList');
 
 // File Download Elements (Chỉ hiện khi tải file)
 const btnFileDownloads = document.getElementById('btnFileDownloads');
@@ -99,8 +102,7 @@ const NEW_TAB_URL = new URL('../newtab/newtab.html', window.location.href).href;
 // QUẢN LÝ POPUP & ĐÓNG/MỞ THÔNG MINH (CLICK 1 LẦN MỞ, LẦN NỮA ĐÓNG)
 // ==========================================
 function closeAllPopups() {
-  if (adblockPopup) adblockPopup.classList.remove('show');
-  if (videoPopup) videoPopup.classList.remove('show');
+  if (extensionsPopup) extensionsPopup.classList.remove('show');
   if (fileDlPopup) fileDlPopup.classList.remove('show');
   if (mediaHubPopup) mediaHubPopup.classList.remove('show');
   if (mainMenuPopup) mainMenuPopup.classList.remove('show');
@@ -216,8 +218,6 @@ function switchTab(tabId) {
 
   updateOmniboxForTab(targetTab);
   updateNavButtons(targetTab.webview);
-  updateAdblockUI(targetTab);
-  updateVideoUI(targetTab);
   updateMediaHubUI(targetTab);
   updateDarkModeButton(targetTab.darkModeActive);
   updateBookmarkButton(targetTab);
@@ -292,54 +292,17 @@ function setupWebviewEvents(tabData) {
   webview.addEventListener('did-navigate', (e) => {
     tabData.url = e.url;
     tabData.isNewTab = e.url.includes('newtab.html');
-    tabData.mediaList = [];
     tabData.mediaState = null;
     if (tabData.id === activeTabId) {
       updateOmniboxForTab(tabData);
       updateNavButtons(webview);
-      updateAdblockUI(tabData);
       updateBookmarkButton(tabData);
-      updateVideoUI(tabData);
       updateMediaHubUI(tabData);
     }
   });
 
-  const ytAdSelectors = `
-    ytd-ad-slot-renderer,
-    ytd-in-feed-ad-layout-renderer,
-    ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
-    ytd-rich-item-renderer:has(ytd-in-feed-ad-layout-renderer),
-    ytd-rich-section-renderer:has(ytd-ad-slot-renderer),
-    ytd-banner-promo-renderer,
-    #masthead-ad,
-    ytd-promoted-sparkles-web-renderer,
-    ytd-promoted-video-renderer,
-    ytd-display-ad-renderer,
-    #player-ads,
-    .ytp-ad-module,
-    .ytp-ad-overlay-container,
-    .ytp-ad-player-overlay-layout,
-    .ytp-ad-player-overlay,
-    .adsbygoogle,
-    [id^="google_ads_"],
-    [id^="div-gpt-ad"] {
-      display: none !important;
-      visibility: hidden !important;
-      height: 0 !important;
-      width: 0 !important;
-      pointer-events: none !important;
-    }
-  `;
-
-  webview.addEventListener('dom-ready', () => {
-    try {
-      webview.insertCSS(ytAdSelectors).catch(() => {});
-    } catch (e) {}
-  });
-
   webview.addEventListener('did-navigate-in-page', (e) => {
     if (tabData.url !== e.url) {
-      tabData.mediaList = [];
       tabData.mediaState = null;
     }
     tabData.url = e.url;
@@ -347,55 +310,16 @@ function setupWebviewEvents(tabData) {
       updateOmniboxForTab(tabData);
       updateNavButtons(webview);
       updateBookmarkButton(tabData);
-      updateVideoUI(tabData);
       updateMediaHubUI(tabData);
     }
-    // Tự động duy trì ẩn quảng cáo khi lướt video trên YouTube (SPA)
-    try {
-      webview.insertCSS(ytAdSelectors).catch(() => {});
-    } catch (e) {}
   });
 
   function handleWebviewIPC(channel, data) {
-    if (channel === 'adblock-count') {
-      const count = (data && data.count) ? data.count : 1;
-      tabData.blockedCount = (tabData.blockedCount || 0) + count;
-      if (api && api.recordAdBlock) {
-        api.recordAdBlock('youtube.com', count).then(stats => {
-          if (tabData.id === activeTabId) {
-            adblockBadge.textContent = tabData.blockedCount;
-            popupBlockedCount.textContent = tabData.blockedCount;
-            if (stats && stats.totalBlocked) {
-              popupTotalBlocked.textContent = Math.max(stats.totalBlocked, tabData.blockedCount);
-            }
-          }
-        }).catch(() => {});
-      } else {
-        if (tabData.id === activeTabId) {
-          adblockBadge.textContent = tabData.blockedCount;
-          popupBlockedCount.textContent = tabData.blockedCount;
-        }
-      }
-    } else if (channel === 'media-detected') {
-      if (!tabData.mediaList) tabData.mediaList = [];
-      const media = data && data.media;
-      if (media) {
-        const exists = tabData.mediaList.some(m => m.id === media.id);
-        if (!exists) {
-          tabData.mediaList.push(media);
-          if (tabData.id === activeTabId) {
-            updateVideoUI(tabData);
-            showToast(`🎬 Zenith phát hiện: ${media.title}`);
-          }
-        }
-      }
-    } else if (channel === 'media-playback-state') {
+    if (channel === 'media-playback-state') {
       tabData.mediaState = data;
       if (tabData.id === activeTabId) {
         updateMediaHubUI(tabData);
       }
-    } else if (channel === 'open-video-popup') {
-      if (videoPopup) togglePopup(videoPopup);
     }
   }
 
@@ -522,159 +446,289 @@ btnHome.addEventListener('click', () => {
 newTabBtn.addEventListener('click', () => createTab());
 
 // ==========================================
-// 5. KHIÊN CHẶN QUẢNG CÁO (ZENITH SHIELD)
+// 5. QUẢN LÝ TIỆN ÍCH MỞ RỘNG (CHROME / UBLOCK EXTENSIONS)
 // ==========================================
-async function updateAdblockUI(tabData) {
-  if (!tabData || tabData.isNewTab) {
-    adblockBadge.textContent = '0';
-    popupBlockedCount.textContent = '0';
-    return;
-  }
+let cachedExtensions = [];
 
-  try {
-    const host = new URL(tabData.url).hostname;
-    const stats = (api && api.getAdblockStats) ? await api.getAdblockStats(host) : {};
-    const count = tabData.blockedCount || stats.blockedCount || 0;
+function renderExtensionsList(extList) {
+  cachedExtensions = extList || [];
 
-    adblockBadge.textContent = count;
-    popupBlockedCount.textContent = count;
-    popupTotalBlocked.textContent = Math.max(stats.totalBlocked || 0, count);
-    adblockToggleCheckbox.checked = stats.enabled !== undefined ? stats.enabled : true;
-
-    const statusText = document.getElementById('adblockStatusText');
-    if (statusText) {
-      statusText.textContent = (stats.enabled !== false) ? 'Đang bảo vệ' : 'Đã tạm tắt';
-      statusText.style.color = (stats.enabled !== false) ? '#10b981' : '#f59e0b';
+  // 1. Cập nhật số lượng badge
+  const enabledCount = cachedExtensions.filter(e => e.enabled).length;
+  if (extensionsBadge) {
+    if (enabledCount > 0) {
+      extensionsBadge.style.display = 'flex';
+      extensionsBadge.textContent = enabledCount;
+    } else {
+      extensionsBadge.style.display = 'none';
     }
-  } catch (e) {
-    adblockBadge.textContent = tabData.blockedCount || '0';
-  }
-}
-
-adblockShieldBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  togglePopup(adblockPopup);
-});
-
-adblockToggleCheckbox.addEventListener('change', async () => {
-  const currentTab = tabs.find(t => t.id === activeTabId);
-  if (!currentTab || currentTab.isNewTab) return;
-
-  try {
-    const host = new URL(currentTab.url).hostname;
-    const res = await api.toggleAdblock(host);
-    showToast(res.enabled ? '🛡️ Đã bật Zenith Shield cho trang này' : '⚠️ Đã tắt Chặn quảng cáo cho trang này');
-    updateAdblockUI(currentTab);
-    currentTab.webview.reload();
-  } catch (e) {}
-});
-
-// ==========================================
-// 6A. TẢI VIDEO (CHỈ HIỆN KHI PHÁT HIỆN VIDEO TRÊN TRANG)
-// ==========================================
-function updateVideoUI(tabData) {
-  if (!tabData || !btnVideoDownload) return;
-
-  const count = tabData.mediaList ? tabData.mediaList.length : 0;
-  if (count > 0) {
-    btnVideoDownload.style.display = 'flex';
-    videoBadge.textContent = count;
-  } else {
-    btnVideoDownload.style.display = 'none';
   }
 
-  renderVideoList(tabData.mediaList || []);
-}
+  // 2. Render vào popup
+  if (extensionsList) {
+    if (!cachedExtensions || cachedExtensions.length === 0) {
+      extensionsList.innerHTML = `<div class="empty-stream-msg">Chưa có tiện ích nào được cài đặt.</div>`;
+    } else {
+      extensionsList.innerHTML = '';
+      cachedExtensions.forEach(ext => {
+        const item = document.createElement('div');
+        item.className = 'ext-item' + (ext.enabled ? '' : ' disabled');
 
-function renderVideoList(list) {
-  if (!videoListContainer) return;
-  if (!list || list.length === 0) {
-    videoListContainer.innerHTML = `<div class="empty-stream-msg">Chưa phát hiện video nào trên trang này.</div>`;
-    return;
-  }
+        const iconHtml = ext.iconUrl 
+          ? `<img class="ext-item-icon" src="${ext.iconUrl}" alt="icon">` 
+          : `<div class="ext-item-icon">🧩</div>`;
 
-  videoListContainer.innerHTML = '';
-  list.forEach(item => {
-    const itemElem = document.createElement('div');
-    itemElem.className = 'stream-item';
-    itemElem.innerHTML = `
-      <div class="stream-info">
-        <div class="stream-title" title="${item.title}">${item.type === 'audio' ? '🎵' : '🎬'} ${item.title}</div>
-        <div class="stream-meta">${item.ext.toUpperCase()} • ${item.formattedSize}</div>
-      </div>
-      <button class="btn-stream-dl" data-url="${item.url}" data-title="${item.title}">Tải về</button>
-    `;
+        const optionsBtnHtml = ext.optionsUrl 
+          ? `<button class="ext-icon-btn options-btn" title="Cài đặt tiện ích">⚙️</button>` 
+          : '';
 
-    const dlBtn = itemElem.querySelector('.btn-stream-dl');
-    dlBtn.addEventListener('click', () => {
-      // Nếu là liên kết mở trang chuyển đổi Full HD / MP3 chuyên nghiệp
-      if (item.url.includes('ssyoutube.com') || item.url.includes('y2mate')) {
-        createTab(item.url);
-        showToast('🚀 Đang mở giao diện chọn chất lượng 1080p / MP3...');
-        if (videoPopup) videoPopup.classList.remove('show');
-        return;
-      }
+        item.innerHTML = `
+          ${iconHtml}
+          <div class="ext-item-info">
+            <div class="ext-item-name-row">
+              <span class="ext-item-name" title="${ext.name}">${ext.name}</span>
+              <span class="ext-item-version">v${ext.version}</span>
+            </div>
+            ${ext.description ? `<div class="ext-item-desc" title="${ext.description}">${ext.description}</div>` : ''}
+          </div>
+          <div class="ext-item-actions">
+            ${optionsBtnHtml}
+            <label class="modern-switch" title="${ext.enabled ? 'Tắt tiện ích' : 'Bật tiện ích'}">
+              <input type="checkbox" class="ext-toggle-cb" ${ext.enabled ? 'checked' : ''}>
+              <span class="modern-slider"></span>
+            </label>
+            <button class="ext-icon-btn delete" title="Gỡ tiện ích">🗑️</button>
+          </div>
+        `;
 
-      // Tải trực tiếp file media nhị phân chuẩn (MP4 / M4A)
-      let filename = item.title.replace(/\.html?$/i, '').trim();
-      const ext = item.ext || (item.type === 'audio' ? 'm4a' : 'mp4');
-      if (!filename.endsWith('.' + ext)) {
-        filename += '.' + ext;
-      }
+        // Switch toggle
+        const toggleCb = item.querySelector('.ext-toggle-cb');
+        toggleCb.addEventListener('change', async () => {
+          try {
+            await api.toggleExtension(ext.id, toggleCb.checked);
+            showToast(toggleCb.checked ? `✅ Đã bật tiện ích: ${ext.name}` : `⏸️ Đã tắt tiện ích: ${ext.name}`);
+            await refreshExtensions();
+          } catch (err) {
+            showToast('Lỗi: ' + err.message);
+          }
+        });
 
-      api.downloadUrl(item.url, filename, item.type);
-      showToast(`⚡ Đang tải về: ${filename}`);
-      if (videoPopup) videoPopup.classList.remove('show');
-    });
-
-    videoListContainer.appendChild(itemElem);
-  });
-}
-
-if (api && api.onMediaDetected) {
-  api.onMediaDetected((data) => {
-    let targetTab = null;
-    if (data.tabId) {
-      targetTab = tabs.find(t => {
-        try {
-          return t.webview && t.webview.getWebContentsId && t.webview.getWebContentsId() === data.tabId;
-        } catch (e) {
-          return false;
+        // Options button
+        const optBtn = item.querySelector('.options-btn');
+        if (optBtn && ext.optionsUrl) {
+          optBtn.addEventListener('click', () => {
+            createTab(ext.optionsUrl);
+            closeAllPopups();
+          });
         }
+
+        // Delete button
+        const delBtn = item.querySelector('.delete');
+        delBtn.addEventListener('click', async () => {
+          if (confirm(`Bạn có chắc muốn gỡ bỏ tiện ích "${ext.name}"?`)) {
+            try {
+              await api.removeExtension(ext.id);
+              showToast(`🗑️ Đã xóa tiện ích: ${ext.name}`);
+              await refreshExtensions();
+            } catch (err) {
+              showToast('Lỗi: ' + err.message);
+            }
+          }
+        });
+
+        extensionsList.appendChild(item);
       });
     }
-    if (!targetTab) {
-      targetTab = tabs.find(t => t.id === activeTabId);
-    }
-    if (!targetTab) return;
+  }
 
-    if (!targetTab.mediaList) targetTab.mediaList = [];
-    const media = data.media;
-    const exists = targetTab.mediaList.some(m => m.id === media.id || m.url === media.url);
-    if (!exists) {
-      // Đặt tên đẹp theo tiêu đề tab nếu là video YouTube
-      if (targetTab.title && targetTab.title !== 'Tab mới' && targetTab.title !== 'YouTube') {
-        const cleanTitle = targetTab.title.replace(/ - YouTube$/, '').trim();
-        if (media.title.includes('YouTube') || media.title.startsWith('video_')) {
-          media.title = `${cleanTitle} (${media.type === 'audio' ? 'Audio' : 'Video'})`;
+  // 3. Render vào Settings modal nếu có
+  if (settingsExtensionsList) {
+    if (!cachedExtensions || cachedExtensions.length === 0) {
+      settingsExtensionsList.innerHTML = `<div class="empty-stream-msg">Chưa có tiện ích nào.</div>`;
+    } else {
+      settingsExtensionsList.innerHTML = '';
+      cachedExtensions.forEach(ext => {
+        const item = document.createElement('div');
+        item.className = 'ext-item' + (ext.enabled ? '' : ' disabled');
+
+        const iconHtml = ext.iconUrl 
+          ? `<img class="ext-item-icon" src="${ext.iconUrl}" alt="icon">` 
+          : `<div class="ext-item-icon">🧩</div>`;
+
+        item.innerHTML = `
+          ${iconHtml}
+          <div class="ext-item-info">
+            <div class="ext-item-name-row">
+              <span class="ext-item-name">${ext.name}</span>
+              <span class="ext-item-version">v${ext.version}</span>
+            </div>
+            ${ext.description ? `<div class="ext-item-desc">${ext.description}</div>` : ''}
+          </div>
+          <div class="ext-item-actions">
+            <label class="modern-switch">
+              <input type="checkbox" class="ext-settings-toggle-cb" ${ext.enabled ? 'checked' : ''}>
+              <span class="modern-slider"></span>
+            </label>
+            <button class="ext-icon-btn delete" title="Gỡ tiện ích">🗑️</button>
+          </div>
+        `;
+
+        const toggleCb = item.querySelector('.ext-settings-toggle-cb');
+        toggleCb.addEventListener('change', async () => {
+          try {
+            await api.toggleExtension(ext.id, toggleCb.checked);
+            await refreshExtensions();
+          } catch (err) {}
+        });
+
+        const delBtn = item.querySelector('.delete');
+        delBtn.addEventListener('click', async () => {
+          if (confirm(`Bạn có chắc muốn gỡ bỏ tiện ích "${ext.name}"?`)) {
+            await api.removeExtension(ext.id);
+            await refreshExtensions();
+          }
+        });
+
+        settingsExtensionsList.appendChild(item);
+      });
+    }
+  }
+}
+
+async function refreshExtensions() {
+  if (!api || !api.getAllExtensions) return;
+  try {
+    const list = await api.getAllExtensions();
+    renderExtensionsList(list);
+  } catch (err) {
+    console.error('Error refreshing extensions:', err);
+  }
+}
+
+// Bật/tắt popup Extensions
+if (btnExtensions) {
+  btnExtensions.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePopup(extensionsPopup);
+    refreshExtensions();
+  });
+}
+
+// Mở thư mục Extensions
+if (btnOpenExtensionsFolder) {
+  btnOpenExtensionsFolder.addEventListener('click', () => {
+    if (api && api.openExtensionsFolder) {
+      api.openExtensionsFolder();
+      showToast('📂 Đã mở thư mục Extensions! Bạn có thể copy/vứt file tiện ích vào đây.');
+    }
+  });
+}
+
+// Tải lại Extensions
+if (btnReloadExtensions) {
+  btnReloadExtensions.addEventListener('click', async () => {
+    if (api && api.reloadExtensions) {
+      await api.reloadExtensions();
+      await refreshExtensions();
+      showToast('🔄 Đã làm mới danh sách tiện ích mở rộng!');
+    }
+  });
+}
+
+// Chọn file / thư mục từ máy tính
+async function handlePickAndInstallExtension() {
+  if (!api || !api.pickAndInstallExtension) return;
+  try {
+    const res = await api.pickAndInstallExtension();
+    if (res.canceled) return;
+    if (res.success) {
+      showToast(`🎉 Cài đặt tiện ích thành công: ${res.name || ''}`);
+      await refreshExtensions();
+    } else {
+      showToast(`❌ Không thể cài tiện ích: ${res.error || 'Lỗi không xác định'}`);
+    }
+  } catch (err) {
+    showToast('Lỗi: ' + err.message);
+  }
+}
+
+if (btnPickExtension) {
+  btnPickExtension.addEventListener('click', handlePickAndInstallExtension);
+}
+
+if (btnSettingOpenExtFolder) {
+  btnSettingOpenExtFolder.addEventListener('click', () => {
+    if (api && api.openExtensionsFolder) {
+      api.openExtensionsFolder();
+      showToast('📂 Đã mở thư mục Extensions!');
+    }
+  });
+}
+
+if (btnSettingPickExt) {
+  btnSettingPickExt.addEventListener('click', handlePickAndInstallExtension);
+}
+
+if (btnSettingReloadExt) {
+  btnSettingReloadExt.addEventListener('click', async () => {
+    if (api && api.reloadExtensions) {
+      await api.reloadExtensions();
+      await refreshExtensions();
+      showToast('🔄 Đã làm mới danh sách tiện ích!');
+    }
+  });
+}
+
+if (menuItemExtensions) {
+  menuItemExtensions.addEventListener('click', () => {
+    closeAllPopups();
+    if (extensionsPopup) {
+      extensionsPopup.classList.add('show');
+      refreshExtensions();
+    }
+  });
+}
+
+// Kéo thả (Drag & Drop) cài đặt tiện ích
+window.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  if (extDropzone) extDropzone.classList.add('dragover');
+});
+
+window.addEventListener('dragleave', (e) => {
+  if (e.relatedTarget === null && extDropzone) {
+    extDropzone.classList.remove('dragover');
+  }
+});
+
+window.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  if (extDropzone) extDropzone.classList.remove('dragover');
+
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    for (let i = 0; i < e.dataTransfer.files.length; i++) {
+      const file = e.dataTransfer.files[i];
+      const filePath = file.path;
+      if (filePath) {
+        showToast(`⏳ Đang nạp tiện ích: ${file.name}...`);
+        try {
+          const res = await api.installExtensionFromPath(filePath);
+          if (res && res.success) {
+            showToast(`🎉 Cài đặt tiện ích thành công: ${res.name || file.name}`);
+          } else {
+            showToast(`❌ Lỗi: ${res ? res.error : 'Không thể cài đặt'}`);
+          }
+        } catch (err) {
+          showToast(`❌ Lỗi cài đặt: ${err.message}`);
         }
       }
-
-      targetTab.mediaList.push(media);
-      if (targetTab.id === activeTabId) {
-        updateVideoUI(targetTab);
-        showToast(`🎬 Zenith phát hiện: ${media.title}`);
-      }
     }
-  });
-}
+    await refreshExtensions();
+  }
+});
 
-if (btnVideoDownload) {
-  btnVideoDownload.addEventListener('click', (e) => {
-    e.stopPropagation();
-    togglePopup(videoPopup);
-  });
-}
+// Nạp danh sách extensions ban đầu
+setTimeout(refreshExtensions, 500);
 
 // ==========================================
 // 6B. TRÌNH QUẢN LÝ TẢI FILE (CHỈ HIỆN KHI CÓ FILE ĐANG TẢI)
@@ -1394,15 +1448,12 @@ const settingsModalCloseBtn = document.getElementById('settingsModalCloseBtn');
 const menuItemSettings = document.getElementById('menuItemSettings');
 
 const settingSearchEngine = document.getElementById('settingSearchEngine');
-const settingShieldToggle = document.getElementById('settingShieldToggle');
-const settingTrackerToggle = document.getElementById('settingTrackerToggle');
 const settingAutoClearData = document.getElementById('settingAutoClearData');
 const btnSettingClearBrowsingData = document.getElementById('btnSettingClearBrowsingData');
 
 const settingDownloadFolderPath = document.getElementById('settingDownloadFolderPath');
 const btnSettingChangeFolder = document.getElementById('btnSettingChangeFolder');
 const btnSettingOpenFolder = document.getElementById('btnSettingOpenFolder');
-const settingAutoDetectMedia = document.getElementById('settingAutoDetectMedia');
 
 const settingMemorySaverToggle = document.getElementById('settingMemorySaverToggle');
 const btnSettingCleanRamNow = document.getElementById('btnSettingCleanRamNow');
@@ -1418,17 +1469,8 @@ async function openSettings(initialTab = 'panelSearch') {
   if (settingSearchEngine) {
     settingSearchEngine.value = localStorage.getItem('zenith_search_engine') || 'google';
   }
-  if (settingShieldToggle) {
-    settingShieldToggle.checked = localStorage.getItem('zenith_shield_enabled') !== 'false';
-  }
-  if (settingTrackerToggle) {
-    settingTrackerToggle.checked = localStorage.getItem('zenith_trackers_blocked') !== 'false';
-  }
   if (settingAutoClearData) {
     settingAutoClearData.checked = localStorage.getItem('zenith_auto_clear_data') === 'true';
-  }
-  if (settingAutoDetectMedia) {
-    settingAutoDetectMedia.checked = localStorage.getItem('zenith_auto_detect_media') !== 'false';
   }
   if (settingMemorySaverToggle) {
     settingMemorySaverToggle.checked = localStorage.getItem('zenith_memory_saver') !== 'false';
@@ -1459,6 +1501,10 @@ async function openSettings(initialTab = 'panelSearch') {
     navBtn.classList.add('active');
     const targetPanel = document.getElementById(initialTab);
     if (targetPanel) targetPanel.classList.add('active');
+  }
+
+  if (initialTab === 'panelExtensions') {
+    refreshExtensions();
   }
 
   settingsModalOverlay.style.display = 'flex';
@@ -1493,6 +1539,10 @@ settingsNavItems.forEach(item => {
     item.classList.add('active');
     const panel = document.getElementById(targetId);
     if (panel) panel.classList.add('active');
+
+    if (targetId === 'panelExtensions') {
+      refreshExtensions();
+    }
   });
 });
 
@@ -1501,20 +1551,6 @@ if (settingSearchEngine) {
   settingSearchEngine.addEventListener('change', () => {
     localStorage.setItem('zenith_search_engine', settingSearchEngine.value);
     showToast(`🔍 Đã đặt công cụ tìm kiếm: ${settingSearchEngine.options[settingSearchEngine.selectedIndex].text}`);
-  });
-}
-
-if (settingShieldToggle) {
-  settingShieldToggle.addEventListener('change', () => {
-    localStorage.setItem('zenith_shield_enabled', settingShieldToggle.checked);
-    showToast(settingShieldToggle.checked ? '🛡️ Đã bật Zenith Shield' : '⚠️ Đã tắt Zenith Shield');
-  });
-}
-
-if (settingTrackerToggle) {
-  settingTrackerToggle.addEventListener('change', () => {
-    localStorage.setItem('zenith_trackers_blocked', settingTrackerToggle.checked);
-    showToast(settingTrackerToggle.checked ? '🛡️ Đã bật Chặn theo dõi & quảng cáo' : 'Đã tắt Chặn theo dõi');
   });
 }
 
@@ -1552,13 +1588,6 @@ if (btnSettingChangeFolder) {
 if (btnSettingOpenFolder) {
   btnSettingOpenFolder.addEventListener('click', () => {
     if (api && api.openDownloadFolder) api.openDownloadFolder();
-  });
-}
-
-if (settingAutoDetectMedia) {
-  settingAutoDetectMedia.addEventListener('change', () => {
-    localStorage.setItem('zenith_auto_detect_media', settingAutoDetectMedia.checked);
-    showToast(settingAutoDetectMedia.checked ? '🎬 Đã bật Tự động bắt link video Savior' : 'Đã tắt Tự động bắt link');
   });
 }
 

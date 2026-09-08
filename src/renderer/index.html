@@ -83,57 +83,43 @@
 
       <!-- Cụm tính năng cao cấp bên phải (Shield, Downloader, PiP, Dark Mode, Menu) -->
       <div class="features-cluster">
-        <!-- 1. Khiên Chặn Quảng Cáo (Zenith Shield) -->
+        <!-- 1. Tiện Ích Mở Rộng (Chrome / uBlock Extensions) -->
         <div class="feature-item">
-          <button class="feature-btn shield-btn" id="adblockShieldBtn" title="Zenith Shield - Chặn quảng cáo">
-            <span class="btn-icon">🛡️</span>
-            <span class="badge shield-badge" id="adblockBadge">0</span>
+          <button class="feature-btn extensions-btn" id="btnExtensions" title="Tiện ích mở rộng (Extensions)">
+            <span class="btn-icon">🧩</span>
+            <span class="badge ext-badge" id="extensionsBadge" style="display: none;">0</span>
           </button>
-          <!-- Popup thống kê chặn quảng cáo -->
-          <div class="floating-popup adblock-card" id="adblockPopup">
+          <!-- Popup quản lý Extension hiện đại -->
+          <div class="floating-popup extensions-card" id="extensionsPopup">
             <div class="popup-title-bar">
               <div class="popup-brand">
-                <span class="shield-dot"></span>
-                <strong>Zenith Shield</strong>
+                <span style="font-size: 16px;">🧩</span>
+                <strong>Tiện ích mở rộng</strong>
               </div>
-              <span class="status-pill" id="adblockStatusText">Đang bảo vệ</span>
+              <div class="popup-header-actions">
+                <button class="glass-action-btn" id="btnOpenExtensionsFolder" title="Mở thư mục để thả/vứt extension vào">📂 Mở thư mục</button>
+                <button class="glass-action-btn" id="btnReloadExtensions" title="Tải lại tất cả tiện ích">🔄</button>
+              </div>
             </div>
-            <div class="toggle-row">
-              <span>Chặn quảng cáo trang này</span>
-              <label class="modern-switch">
-                <input type="checkbox" id="adblockToggleCheckbox" checked>
-                <span class="modern-slider"></span>
-              </label>
-            </div>
-            <div class="glow-stat-card">
-              <div class="glow-number" id="popupBlockedCount">0</div>
-              <div class="glow-label">Quảng cáo & Theo dõi đã chặn</div>
-            </div>
-            <div class="total-row">
-              <span>Tổng số đã chặn:</span>
-              <strong id="popupTotalBlocked">0</strong>
-            </div>
-          </div>
-        </div>
 
-        <!-- 2. Nút Tải Video Riêng Biệt (CHỈ HIỆN KHI PHÁT HIỆN VIDEO TRÊN TRANG) -->
-        <div class="feature-item">
-          <button class="feature-btn video-dl-btn" id="btnVideoDownload" title="Tải video đang phát" style="display: none;">
-            <span class="btn-icon">🎬</span>
-            <span class="badge video-badge" id="videoBadge">0</span>
-          </button>
-          <!-- Popup danh sách video bắt được -->
-          <div class="floating-popup media-card" id="videoPopup">
-            <div class="popup-title-bar">
-              <div class="popup-brand">
-                <span style="font-size: 16px;">🎬</span>
-                <strong>Tải Video</strong>
-              </div>
+            <div class="ext-quick-add-bar">
+              <button class="ext-add-btn" id="btnPickExtension">
+                <span>➕ Cài đặt từ máy tính (Thư mục / Zip / Crx)</span>
+              </button>
             </div>
-            <div class="media-stream-list" id="videoListContainer">
-              <div class="empty-stream-msg">
-                Chưa phát hiện video nào trên trang này.
-              </div>
+
+            <!-- Vùng kéo thả file/thư mục extension -->
+            <div class="ext-dropzone" id="extDropzone">
+              <span class="dropzone-icon">📥</span>
+              <span class="dropzone-text">Kéo thả thư mục tiện ích hoặc file .zip, .crx vào đây</span>
+            </div>
+
+            <div class="extensions-list-container" id="extensionsList">
+              <div class="empty-stream-msg">Chưa có tiện ích nào được cài đặt.</div>
+            </div>
+
+            <div class="ext-footer-tip">
+              <span>💡 Bạn có thể bấm <strong>📂 Mở thư mục</strong> rồi copy/vứt thư mục hoặc file extension vào đó!</span>
             </div>
           </div>
         </div>
@@ -247,6 +233,9 @@
             <span class="btn-icon">⋮</span>
           </button>
           <div class="floating-popup menu-dropdown" id="mainMenuPopup">
+            <div class="menu-action" id="menuItemExtensions">
+              <span>🧩 Tiện ích mở rộng</span>
+            </div>
             <div class="menu-action" id="menuItemNewTab">
               <span>➕ Thẻ mới</span>
               <small>Ctrl+T</small>
@@ -323,8 +312,8 @@
             <button class="settings-nav-item active" data-target="panelSearch">
               <span class="nav-icon">🔍</span> Công cụ tìm kiếm
             </button>
-            <button class="settings-nav-item" data-target="panelPrivacy">
-              <span class="nav-icon">🛡️</span> Quyền riêng tư & Khiên
+            <button class="settings-nav-item" data-target="panelExtensions">
+              <span class="nav-icon">🧩</span> Tiện ích mở rộng
             </button>
             <button class="settings-nav-item" data-target="panelDownloads">
               <span class="nav-icon">⬇️</span> Tệp tải xuống
@@ -363,34 +352,31 @@
               </div>
             </div>
 
-            <!-- 2. Quyền riêng tư & Khiên -->
-            <div class="settings-panel" id="panelPrivacy">
-              <h4 class="panel-heading">Quyền riêng tư & Bảo mật</h4>
-              <p class="panel-desc">Bảo vệ bạn khỏi quảng cáo phiền toái, mã theo dõi và quản lý dữ liệu cá nhân.</p>
+            <!-- 2. Tiện ích mở rộng (Extensions) -->
+            <div class="settings-panel" id="panelExtensions">
+              <h4 class="panel-heading">Tiện ích mở rộng (Extensions)</h4>
+              <p class="panel-desc">Cài đặt các tiện ích chặn quảng cáo (uBlock Origin, Adblock...) hoặc tiện ích Chrome từ máy tính.</p>
 
               <div class="setting-card">
                 <div class="setting-row">
-                  <div>
-                    <strong>Zenith Shield - Chặn quảng cáo video & banner</strong>
-                    <div class="setting-subtext">Tự động triệt tiêu quảng cáo video YouTube và banner tài trợ</div>
+                  <div style="flex: 1; min-width: 0; margin-right: 16px;">
+                    <strong>Thư mục lưu trữ Tiện ích</strong>
+                    <div class="setting-subtext">Mở thư mục để copy hoặc vứt các file/thư mục extension vào</div>
                   </div>
-                  <label class="modern-switch">
-                    <input type="checkbox" id="settingShieldToggle" checked>
-                    <span class="modern-slider"></span>
-                  </label>
+                  <div style="display: flex; gap: 8px;">
+                    <button class="settings-action-btn" id="btnSettingOpenExtFolder">📂 Mở thư mục</button>
+                    <button class="settings-action-btn" id="btnSettingPickExt">➕ Cài từ tệp</button>
+                    <button class="settings-action-btn" id="btnSettingReloadExt">🔄 Tải lại</button>
+                  </div>
                 </div>
 
                 <div class="setting-divider"></div>
 
-                <div class="setting-row">
-                  <div>
-                    <strong>Chặn mã theo dõi & Cookies độc hại</strong>
-                    <div class="setting-subtext">Ngăn các nhà quảng cáo thu thập hành vi duyệt web của bạn</div>
+                <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                  <strong>Danh sách tiện ích đã cài đặt</strong>
+                  <div class="extensions-settings-list" id="settingsExtensionsList">
+                    <div class="empty-stream-msg">Chưa có tiện ích nào.</div>
                   </div>
-                  <label class="modern-switch">
-                    <input type="checkbox" id="settingTrackerToggle" checked>
-                    <span class="modern-slider"></span>
-                  </label>
                 </div>
 
                 <div class="setting-divider"></div>
@@ -407,8 +393,8 @@
 
             <!-- 3. Tải xuống -->
             <div class="settings-panel" id="panelDownloads">
-              <h4 class="panel-heading">Tệp tải xuống (Savior)</h4>
-              <p class="panel-desc">Quản lý nơi lưu trữ và cách xử lý video, âm thanh và tệp tải về.</p>
+              <h4 class="panel-heading">Tệp tải xuống</h4>
+              <p class="panel-desc">Quản lý nơi lưu trữ và cách xử lý tệp tải về từ web.</p>
 
               <div class="setting-card">
                 <div class="setting-row">
@@ -420,19 +406,6 @@
                     <button class="settings-action-btn" id="btnSettingChangeFolder">Thay đổi...</button>
                     <button class="settings-action-btn" id="btnSettingOpenFolder">Mở thư mục</button>
                   </div>
-                </div>
-
-                <div class="setting-divider"></div>
-
-                <div class="setting-row">
-                  <div>
-                    <strong>Tự động phát hiện video & âm thanh chất lượng cao</strong>
-                    <div class="setting-subtext">Hiện nút tải video khi phát hiện phim, clip ca nhạc trên trang</div>
-                  </div>
-                  <label class="modern-switch">
-                    <input type="checkbox" id="settingAutoDetectMedia" checked>
-                    <span class="modern-slider"></span>
-                  </label>
                 </div>
               </div>
             </div>

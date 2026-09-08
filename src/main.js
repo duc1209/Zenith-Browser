@@ -22,13 +22,11 @@ app.commandLine.appendSwitch('disable-background-networking');
 // 5. Bật giải mã video bằng phần cứng, tải đa luồng và Ghim video Picture-in-Picture
 app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,ParallelDownloading,PictureInPicture,DocumentPictureInPictureAPI');
 
-const AdBlockEngine = require('./modules/adblocker/engine');
-const MediaSniffer = require('./modules/downloader/sniffer');
+const ExtensionManager = require('./modules/extensions/manager');
 const { COCCOC_DARKMODE_SCRIPT } = require('./modules/darkmode/darkmode');
 
 let mainWindow = null;
-const adBlockEngine = new AdBlockEngine();
-const mediaSniffer = new MediaSniffer();
+let extensionManager = null;
 
 // Thư mục tải về mặc định
 let downloadDirectory = app.getPath('downloads');
@@ -113,180 +111,9 @@ function createWindow() {
     }, 500);
   }
 
-  ipcMain.on('download-media', (event, { url, filename, type }) => {
+  ipcMain.on('download-media', (event, { url, filename }) => {
     if (!mainWindow || !url) return;
-
     const downloadId = 'dl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-    const ytdlpPath = getBinPath('yt-dlp.exe');
-
-    // Nếu là video YouTube và engine yt-dlp đã sẵn sàng: Tải và ghép video + audio 100% chuẩn
-    if (isYouTube && fs.existsSync(ytdlpPath)) {
-      let baseName = (filename || 'youtube_video').replace(/[<>:"/\\|?*]/g, '_').trim();
-      baseName = baseName.replace(/\.(mp4|m4a|mp3|html?)$/i, '');
-      const isAudio = type === 'audio' || baseName.toLowerCase().includes('mp3') || baseName.toLowerCase().includes('audio');
-      const ext = isAudio ? 'mp3' : 'mp4';
-      const finalFileName = `${baseName}.${ext}`;
-      const savePath = path.join(downloadDirectory, finalFileName);
-
-      // Báo tiến trình bắt đầu tải với ID để hỗ trợ huỷ
-      mainWindow.webContents.send('download-progress', {
-        id: downloadId,
-        fileName: finalFileName,
-        savePath: savePath,
-        received: 0,
-        total: 100,
-        percent: 0,
-        sizeText: 'Đang kết nối & phân tích dung lượng...',
-        speedText: '',
-        state: 'downloading'
-      });
-
-      const ffmpegPath = getBinPath('ffmpeg.exe');
-      const args = [
-        '--newline',
-        '--no-playlist',
-        '--ffmpeg-location', ffmpegPath
-      ];
-
-      if (isAudio) {
-        args.push('-f', 'ba/b', '-x', '--audio-format', 'mp3');
-      } else {
-        args.push('-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b', '--merge-output-format', 'mp4');
-      }
-
-      args.push('-o', path.join(downloadDirectory, `${baseName}.%(ext)s`), url);
-
-      const proc = spawn(ytdlpPath, args, {
-        cwd: path.join(__dirname, '..', 'bin')
-      });
-
-      runningDownloads.set(downloadId, {
-        id: downloadId,
-        type: 'ytdlp',
-        proc,
-        fileName: finalFileName,
-        savePath,
-        lastSizeText: 'Đang tải...',
-        cancelled: false
-      });
-
-      let lastPercent = 0;
-      let lastSizeText = 'Đang tải...';
-
-      proc.stdout.on('data', data => {
-        const text = data.toString();
-        const lines = text.split(/[\r\n]+/);
-        for (const line of lines) {
-          if (!line) continue;
-
-          if (line.includes('[Merger]')) {
-            lastSizeText = 'Đang ghép video & âm thanh Full HD...';
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('download-progress', {
-                id: downloadId,
-                fileName: finalFileName,
-                savePath: savePath,
-                percent: 98,
-                sizeText: lastSizeText,
-                speedText: '',
-                state: 'downloading'
-              });
-            }
-            continue;
-          }
-
-          if (line.includes('[ExtractAudio]')) {
-            lastSizeText = 'Đang trích xuất sang MP3 320kbps...';
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('download-progress', {
-                id: downloadId,
-                fileName: finalFileName,
-                savePath: savePath,
-                percent: 98,
-                sizeText: lastSizeText,
-                speedText: '',
-                state: 'downloading'
-              });
-            }
-            continue;
-          }
-
-          const percentMatch = line.match(/(\d+\.?\d*)%/);
-          const sizeMatch = line.match(/of\s+~?\s*([\d\.]+\s*[KMGTP]?i?B)/i);
-          const speedMatch = line.match(/at\s+([\d\.]+\s*[KMGTP]?i?B\/s)/i);
-
-          if (percentMatch) {
-            const percent = parseFloat(percentMatch[1]);
-            lastPercent = percent;
-
-            let sizeText = lastSizeText;
-            if (sizeMatch) {
-              const totalStr = sizeMatch[1];
-              const totalMB = parseToMB(totalStr);
-              if (totalMB) {
-                const receivedMB = (totalMB * percent / 100).toFixed(1);
-                const totalDisplay = totalMB >= 1024 ? (totalMB / 1024).toFixed(2) + ' GB' : totalMB.toFixed(1) + ' MB';
-                const receivedDisplay = totalMB >= 1024 ? (receivedMB / 1024).toFixed(2) + ' GB' : receivedMB + ' MB';
-                sizeText = `${receivedDisplay} / ${totalDisplay}`;
-              } else {
-                sizeText = `${percent.toFixed(1)}% của ${totalStr}`;
-              }
-              lastSizeText = sizeText;
-            }
-
-            const speedText = speedMatch ? speedMatch[1].replace('iB', 'B') : '';
-
-            const entry = runningDownloads.get(downloadId);
-            if (entry) entry.lastSizeText = sizeText;
-
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('download-progress', {
-                id: downloadId,
-                fileName: finalFileName,
-                savePath: savePath,
-                percent: Math.round(percent),
-                sizeText: sizeText,
-                speedText: speedText,
-                state: 'downloading'
-              });
-            }
-          }
-        }
-      });
-
-      proc.on('close', code => {
-        const entry = runningDownloads.get(downloadId);
-        runningDownloads.delete(downloadId);
-
-        if (entry && entry.cancelled) {
-          return;
-        }
-
-        const targetFile = fs.existsSync(savePath) ? savePath : path.join(downloadDirectory, `${baseName}.${ext}`);
-        const fileExists = fs.existsSync(targetFile);
-        let finalSizeText = lastSizeText;
-        if (fileExists) {
-          try {
-            const stats = fs.statSync(targetFile);
-            finalSizeText = formatBytes(stats.size);
-          } catch (e) {}
-        }
-        const success = code === 0 || fileExists;
-
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('download-complete', {
-            id: downloadId,
-            fileName: finalFileName,
-            savePath: targetFile,
-            sizeText: finalSizeText,
-            state: success ? 'success' : 'failed'
-          });
-        }
-      });
-      return;
-    }
-
     if (filename) {
       pendingDownloads.set(url, { filename, downloadId });
     }
@@ -451,19 +278,14 @@ function createWindow() {
 }
 
 // Khởi chạy ứng dụng
-app.whenReady().then(() => {
-  // Gắn bộ chặn quảng cáo cực mạnh
-  adBlockEngine.attachToSession(session.defaultSession);
-
-  // Gắn bộ phát hiện Video / Audio
-  mediaSniffer.attachToSession(session.defaultSession, (tabId, mediaItem) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('media-detected', {
-        tabId,
-        media: mediaItem
-      });
-    }
-  });
+app.whenReady().then(async () => {
+  // Khởi tạo và nạp các tiện ích mở rộng Chrome / uBlock Origin
+  extensionManager = new ExtensionManager(session.defaultSession);
+  try {
+    await extensionManager.init();
+  } catch (e) {
+    console.error('[Main] Extension initialization error:', e);
+  }
 
   createWindow();
 
@@ -507,42 +329,77 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close();
 });
 
-// 2. Chặn quảng cáo (Zenith Shield)
-ipcMain.handle('adblock-get-stats', (event, host) => {
-  return {
-    enabled: adBlockEngine.isEnabledForHost(host),
-    blockedCount: adBlockEngine.getBlockedCount(host),
-    totalBlocked: adBlockEngine.stats.totalBlocked
-  };
+// 2. Quản lý Tiện ích mở rộng (Chrome / uBlock Extensions)
+ipcMain.handle('extension-get-all', async () => {
+  if (!extensionManager) return [];
+  return await extensionManager.getAllExtensions();
 });
 
-ipcMain.handle('adblock-record-block', (event, { host, count }) => {
-  const c = Math.min(Math.max(count || 1, 1), 3);
-  for (let i = 0; i < c; i++) {
-    adBlockEngine.recordBlock(host || 'youtube.com');
+ipcMain.on('extension-open-folder', () => {
+  if (extensionManager) {
+    extensionManager.openExtensionsFolder();
   }
-  return {
-    blockedCount: adBlockEngine.getBlockedCount(host || 'youtube.com'),
-    totalBlocked: adBlockEngine.stats.totalBlocked
-  };
 });
 
-ipcMain.handle('adblock-toggle', (event, host) => {
-  const newStatus = adBlockEngine.toggleForHost(host);
-  return {
-    enabled: newStatus,
-    blockedCount: adBlockEngine.getBlockedCount(host)
-  };
+ipcMain.handle('extension-pick-and-install', async () => {
+  if (!mainWindow || !extensionManager) return { canceled: true };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Chọn thư mục Extension đã giải nén hoặc tệp .zip / .crx',
+    properties: ['openFile', 'openDirectory'],
+    filters: [
+      { name: 'Tiện ích mở rộng (Thư mục hoặc Zip/Crx)', extensions: ['zip', 'crx'] },
+      { name: 'Tất cả tệp', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return { canceled: true };
+  }
+
+  try {
+    const res = await extensionManager.installFromPath(result.filePaths[0]);
+    return { success: true, ...res };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
-// 3. Tải Video & Media
-ipcMain.handle('media-get-list', (event, tabId) => {
-  return mediaSniffer.getMediaList(tabId);
+ipcMain.handle('extension-install-path', async (event, sourcePath) => {
+  if (!extensionManager || !sourcePath) return { success: false, error: 'Đường dẫn không hợp lệ' };
+  try {
+    const res = await extensionManager.installFromPath(sourcePath);
+    return { success: true, ...res };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
-ipcMain.handle('media-clear-list', (event, tabId) => {
-  mediaSniffer.clearTab(tabId);
-  return true;
+ipcMain.handle('extension-toggle', async (event, { id, enabled }) => {
+  if (!extensionManager) return { success: false };
+  try {
+    return await extensionManager.toggleExtension(id, enabled);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('extension-remove', async (event, id) => {
+  if (!extensionManager) return { success: false };
+  try {
+    return await extensionManager.removeExtension(id);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('extension-reload-all', async () => {
+  if (!extensionManager) return [];
+  try {
+    return await extensionManager.reloadAll();
+  } catch (err) {
+    console.error('[Main] Extension reload error:', err);
+    return [];
+  }
 });
 
 ipcMain.on('open-download-folder', () => {
